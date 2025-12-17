@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -20,12 +21,11 @@ export default function Home() {
           <p className="text-gray-600 mb-4">
             View, add, and manage your classes and assignments easily.
           </p>
-          <button
-            onClick={() => window.location.href = "/schedule"}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          >
-            Go to Schedule
-          </button>
+          <Link href="/schedule">
+            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+              Go to Schedule
+            </button>
+          </Link>
         </div>
 
         {/* Fitness Tracker Card */}
@@ -34,12 +34,11 @@ export default function Home() {
           <p className="text-gray-600 mb-4">
             Log workouts, track steps, and monitor your progress.
           </p>
-          <button
-            onClick={() => window.location.href = "/fitness"}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-          >
-            Go to Fitness
-          </button>
+          <Link href="/fitness">
+            <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+              Go to Fitness
+            </button>
+          </Link>
         </div>
 
         {/* Profile Card */}
@@ -48,12 +47,11 @@ export default function Home() {
           <p className="text-gray-600 mb-4">
             Manage your account and settings.
           </p>
-          <button
-            onClick={() => window.location.href = "/profile"}
-            className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition"
-          >
-            Go to Profile
-          </button>
+          <Link href="/profile">
+            <button className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition">
+              Go to Profile
+            </button>
+          </Link>
         </div>
       </main>
 
@@ -64,6 +62,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 
