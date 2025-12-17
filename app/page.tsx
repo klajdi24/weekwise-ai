@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 
 export default function Home() {
@@ -14,13 +16,13 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Academic Schedule Card */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition cursor-pointer">
+        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">📚 Academic Schedule</h2>
           <p className="text-gray-600 mb-4">
             View, add, and manage your classes and assignments easily.
           </p>
           <button
-            onClick={() => window.location.href="/schedule"}
+            onClick={() => window.location.href = "/schedule"}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
           >
             Go to Schedule
@@ -28,13 +30,13 @@ export default function Home() {
         </div>
 
         {/* Fitness Tracker Card */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition cursor-pointer">
+        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">🏃 Fitness Tracker</h2>
           <p className="text-gray-600 mb-4">
             Log workouts, track steps, and monitor your progress.
           </p>
           <button
-            onClick={() => window.location.href="/fitness"}
+            onClick={() => window.location.href = "/fitness"}
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
             Go to Fitness
@@ -42,13 +44,13 @@ export default function Home() {
         </div>
 
         {/* Profile Card */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition cursor-pointer">
+        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">👤 Profile</h2>
           <p className="text-gray-600 mb-4">
-            Manage your account, settings, and preferences.
+            Manage your account and settings.
           </p>
           <button
-            onClick={() => window.location.href="/profile"}
+            onClick={() => window.location.href = "/profile"}
             className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition"
           >
             Go to Profile
@@ -63,5 +65,6 @@ export default function Home() {
     </div>
   );
 }
+
 
 
