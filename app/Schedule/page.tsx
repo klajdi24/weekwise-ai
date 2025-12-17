@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import { useState } from "react";
 
 interface Event {
   id: number;
@@ -96,4 +96,3 @@ export default function Schedule() {
     </div>
   );
 }
-
