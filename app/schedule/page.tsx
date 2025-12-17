@@ -1,5 +1,7 @@
 "use client";
-import React, { useState } from "react";
+import { useState } from "react";
+import Navbar from "../components/navbar";
+import Footer from "../components/footer";
 
 interface Event {
   id: number;
@@ -27,13 +29,14 @@ export default function Schedule() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen flex flex-col bg-gray-50 p-6">
+      <Navbar />
+
       <header className="mb-6 text-center">
         <h1 className="text-3xl font-bold text-blue-600">📚 Academic Schedule</h1>
         <p className="text-gray-600 mt-1">Manage your classes and assignments</p>
       </header>
 
-      {/* Add Event Form */}
       <div className="bg-white p-6 rounded-xl shadow-md mb-6 max-w-xl mx-auto">
         <h2 className="text-xl font-semibold mb-4">Add New Event</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -65,7 +68,6 @@ export default function Schedule() {
         </button>
       </div>
 
-      {/* Event List */}
       <div className="max-w-xl mx-auto">
         {events.length === 0 ? (
           <p className="text-gray-500 text-center">No events added yet.</p>
@@ -93,8 +95,11 @@ export default function Schedule() {
           </ul>
         )}
       </div>
+
+      <Footer />
     </div>
   );
 }
+
 
 
