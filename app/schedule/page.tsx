@@ -1,6 +1,5 @@
-// redeploy fix
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 
 interface Event {
   id: number;
@@ -97,4 +96,5 @@ export default function Schedule() {
     </div>
   );
 }
+
 
