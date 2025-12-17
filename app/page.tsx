@@ -19,7 +19,10 @@ export default function Home() {
           <p className="text-gray-600 mb-4">
             View, add, and manage your classes and assignments easily.
           </p>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+          <button
+            onClick={() => window.location.href="/schedule"}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          >
             Go to Schedule
           </button>
         </div>
@@ -28,9 +31,12 @@ export default function Home() {
         <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition cursor-pointer">
           <h2 className="text-xl font-semibold mb-2">🏃 Fitness Tracker</h2>
           <p className="text-gray-600 mb-4">
-            Log workouts, track steps, and monitor your health progress.
+            Log workouts, track steps, and monitor your progress.
           </p>
-          <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+          <button
+            onClick={() => window.location.href="/fitness"}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+          >
             Go to Fitness
           </button>
         </div>
@@ -41,7 +47,10 @@ export default function Home() {
           <p className="text-gray-600 mb-4">
             Manage your account, settings, and preferences.
           </p>
-          <button className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition">
+          <button
+            onClick={() => window.location.href="/profile"}
+            className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition"
+          >
             Go to Profile
           </button>
         </div>
@@ -54,4 +63,5 @@ export default function Home() {
     </div>
   );
 }
+
 
