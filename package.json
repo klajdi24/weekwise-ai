@@ -2,16 +2,18 @@
   "name": "weekwise-ai",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "next": "16.0.10",
     "openai": "^6.15.0",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "react": "19.2.1",
     "react-dom": "19.2.1"
   },
