@@ -8,7 +8,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
       <Navbar />
 
-      <main className="flex-1 p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <main className="flex-1 p-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Academic Schedule */}
         <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">📚 Academic Schedule</h2>
           <p className="text-gray-600 mb-4">
@@ -21,6 +22,7 @@ export default function Home() {
           </Link>
         </div>
 
+        {/* Fitness Tracker */}
         <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">🏃 Fitness Tracker</h2>
           <p className="text-gray-600 mb-4">
@@ -33,9 +35,25 @@ export default function Home() {
           </Link>
         </div>
 
+        {/* PDF Summarizer */}
+        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
+          <h2 className="text-xl font-semibold mb-2">📄 PDF Summarizer</h2>
+          <p className="text-gray-600 mb-4">
+            Upload lecture slides or notes and get a concise summary.
+          </p>
+          <Link href="/summarize">
+            <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">
+              Summarize PDFs
+            </button>
+          </Link>
+        </div>
+
+        {/* Profile */}
         <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">👤 Profile</h2>
-          <p className="text-gray-600 mb-4">Manage your account and settings.</p>
+          <p className="text-gray-600 mb-4">
+            Manage your account and settings.
+          </p>
           <Link href="/profile">
             <button className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition">
               Go to Profile
@@ -48,6 +66,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 
