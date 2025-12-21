@@ -1,69 +1,61 @@
 "use client";
 import Link from "next/link";
-import Navbar from "./components/navbar";
-import Footer from "./components/footer";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
-      <Navbar />
+    <main className="flex-1 p-8 grid grid-cols-1 md:grid-cols-4 gap-6 min-h-screen bg-gray-50 text-gray-900">
+      {/* Academic Schedule */}
+      <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
+        <h2 className="text-xl font-semibold mb-2">📚 Academic Schedule</h2>
+        <p className="text-gray-600 mb-4">
+          View, add, and manage your classes and assignments easily.
+        </p>
+        <Link href="/schedule">
+          <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+            Go to Schedule
+          </button>
+        </Link>
+      </div>
 
-      <main className="flex-1 p-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Academic Schedule */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h2 className="text-xl font-semibold mb-2">📚 Academic Schedule</h2>
-          <p className="text-gray-600 mb-4">
-            View, add, and manage your classes and assignments easily.
-          </p>
-          <Link href="/schedule">
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-              Go to Schedule
-            </button>
-          </Link>
-        </div>
+      {/* Fitness Tracker */}
+      <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
+        <h2 className="text-xl font-semibold mb-2">🏃 Fitness Tracker</h2>
+        <p className="text-gray-600 mb-4">
+          Log workouts, track steps, and monitor your progress.
+        </p>
+        <Link href="/fitness">
+          <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+            Go to Fitness
+          </button>
+        </Link>
+      </div>
 
-        {/* Fitness Tracker */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h2 className="text-xl font-semibold mb-2">🏃 Fitness Tracker</h2>
-          <p className="text-gray-600 mb-4">
-            Log workouts, track steps, and monitor your progress.
-          </p>
-          <Link href="/fitness">
-            <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
-              Go to Fitness
-            </button>
-          </Link>
-        </div>
+      {/* PDF Summarizer */}
+      <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
+        <h2 className="text-xl font-semibold mb-2">📄 PDF Summarizer</h2>
+        <p className="text-gray-600 mb-4">
+          Upload lecture slides or notes and get a concise summary.
+        </p>
+        <Link href="/summarize">
+          <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">
+            Summarize PDFs
+          </button>
+        </Link>
+      </div>
 
-        {/* PDF Summarizer */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h2 className="text-xl font-semibold mb-2">📄 PDF Summarizer</h2>
-          <p className="text-gray-600 mb-4">
-            Upload lecture slides or notes and get a concise summary.
-          </p>
-          <Link href="/summarize">
-            <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">
-              Summarize PDFs
-            </button>
-          </Link>
-        </div>
-
-        {/* Profile */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h2 className="text-xl font-semibold mb-2">👤 Profile</h2>
-          <p className="text-gray-600 mb-4">
-            Manage your account and settings.
-          </p>
-          <Link href="/profile">
-            <button className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition">
-              Go to Profile
-            </button>
-          </Link>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+      {/* Profile */}
+      <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
+        <h2 className="text-xl font-semibold mb-2">👤 Profile</h2>
+        <p className="text-gray-600 mb-4">
+          Manage your account and settings.
+        </p>
+        <Link href="/profile">
+          <button className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition">
+            Go to Profile
+          </button>
+        </Link>
+      </div>
+    </main>
   );
 }
 

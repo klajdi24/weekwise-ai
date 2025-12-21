@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Navbar from "../components/navbar";
-import Footer from "../components/footer";
 
 export default function Summarize() {
   const [file, setFile] = useState<File | null>(null);
@@ -42,42 +40,37 @@ export default function Summarize() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
+    <main className="flex-1 p-6 max-w-3xl mx-auto min-h-screen bg-gray-50">
+      <h1 className="text-3xl font-bold text-blue-600 mb-4">📄 PDF Summarizer</h1>
+      <p className="text-gray-600 mb-6">
+        Upload your lecture slides or notes and get a concise summary.
+      </p>
 
-      <main className="flex-1 p-6 max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-blue-600 mb-4">📄 PDF Summarizer</h1>
-        <p className="text-gray-600 mb-6">
-          Upload your lecture slides or notes and get a concise summary.
-        </p>
+      <input
+        type="file"
+        accept=".pdf"
+        onChange={handleFileChange}
+        className="border p-2 rounded w-full mb-4"
+      />
 
-        <input
-          type="file"
-          accept=".pdf"
-          onChange={handleFileChange}
-          className="border p-2 rounded w-full mb-4"
-        />
+      <button
+        onClick={handleSubmit}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+      >
+        {loading ? "Summarizing..." : "Summarize PDF"}
+      </button>
 
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-        >
-          {loading ? "Summarizing..." : "Summarize PDF"}
-        </button>
-
-        {error && <p className="text-red-600 mt-4">{error}</p>}
-        {summary && (
-          <div className="mt-6 p-4 bg-white rounded-xl shadow">
-            <h2 className="text-xl font-semibold mb-2">Summary:</h2>
-            <p className="text-gray-700">{summary}</p>
-          </div>
-        )}
-      </main>
-
-      <Footer />
-    </div>
+      {error && <p className="text-red-600 mt-4">{error}</p>}
+      {summary && (
+        <div className="mt-6 p-4 bg-white rounded-xl shadow">
+          <h2 className="text-xl font-semibold mb-2">Summary:</h2>
+          <p className="text-gray-700">{summary}</p>
+        </div>
+      )}
+    </main>
   );
 }
+
 
 
 
