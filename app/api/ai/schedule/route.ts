@@ -1,3 +1,4 @@
+// file: /app/api/ai/schedule/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
@@ -7,9 +8,13 @@ export async function POST(req: NextRequest) {
   try {
     const { events } = await req.json();
 
+    if (!events || !Array.isArray(events)) {
+      return NextResponse.json({ error: "No events provided" }, { status: 400 });
+    }
+
     const prompt = `
-You are an AI scheduling assistant for a university student.
-The student has the following events in the week:
+You are a friendly AI assistant for a university student.
+The student has these events:
 ${JSON.stringify(events, null, 2)}
 
 Generate a weekly schedule that:
@@ -17,14 +22,14 @@ Generate a weekly schedule that:
 - Adds study sessions before assignments
 - Suggests reasonable times (morning, afternoon, evening)
 - Avoids overlapping events
-- Returns the schedule as a JSON array of objects with keys: id, title, type, day, startHour, duration
+- Returns JSON ONLY: array of objects {id:number, title:string, type:"Lecture"|"Assignment"|"Study", day:"Monday"-"Sunday", startHour:0-23, duration:number of hours}
+- Validate that JSON is valid and complete.
 `;
 
     const completion = await openai.chat.completions.create({
-  model: "gpt-3.5-turbo",
-  messages: [{ role: "user", content: prompt }],
-});
-
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
 
     const aiResponse = completion.choices[0].message?.content;
 
@@ -33,6 +38,7 @@ Generate a weekly schedule that:
       aiEvents = JSON.parse(aiResponse || "[]");
     } catch (err) {
       console.error("Failed to parse AI response:", aiResponse);
+      return NextResponse.json({ error: "AI returned invalid schedule" }, { status: 500 });
     }
 
     return NextResponse.json({ events: aiEvents });
@@ -41,3 +47,4 @@ Generate a weekly schedule that:
     return NextResponse.json({ error: "Failed to generate AI schedule" }, { status: 500 });
   }
 }
+

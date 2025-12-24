@@ -1,23 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function Profile() {
-  // Mocked user data
-  const [name, setName] = useState("John Doe");
-  const [email, setEmail] = useState("john.doe@student.com");
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const handleSave = () => {
-    // For now, just show a success message
-    setMessage("Profile updated successfully!");
-    setTimeout(() => setMessage(""), 3000);
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
   };
 
-  const handleLogout = () => {
-    // Placeholder for logout logic
-    alert("Logging out...");
-  };
+  if (loading) return <p>Loading...</p>;
+  if (!user)
+    return (
+      <p className="p-6 text-red-600">You are not logged in. Please log in to view your profile.</p>
+    );
 
   return (
     <main className="flex-1 p-8 min-h-screen bg-gray-50 flex flex-col items-center">
@@ -27,25 +43,20 @@ export default function Profile() {
         <label className="block text-gray-600 font-semibold mb-1">Name</label>
         <input
           type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={user.user_metadata?.full_name || ""}
+          onChange={() => {}}
           className="w-full border p-2 rounded mb-4"
+          disabled
         />
 
         <label className="block text-gray-600 font-semibold mb-1">Email</label>
         <input
           type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={user.email}
+          onChange={() => {}}
           className="w-full border p-2 rounded mb-4"
+          disabled
         />
-
-        <button
-          onClick={handleSave}
-          className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition mb-2"
-        >
-          Save Changes
-        </button>
 
         <button
           onClick={handleLogout}
@@ -59,6 +70,7 @@ export default function Profile() {
     </main>
   );
 }
+
 
 
 

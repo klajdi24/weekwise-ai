@@ -1,46 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabaseClient";
 
 type EventType = "Lecture" | "Assignment" | "Study";
 
 interface Event {
   id: number;
+  user_id: string;
   title: string;
   type: EventType;
-  day: string; // "Monday", "Tuesday", etc.
-  startHour: number; // 0-23
-  duration: number; // in hours
+  day: string;
+  start_hour: number; // snake_case
+  duration: number;
 }
 
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function SchedulePage() {
+  const [user, setUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
   const [events, setEvents] = useState<Event[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
   const [title, setTitle] = useState("");
   const [type, setType] = useState<EventType>("Lecture");
   const [day, setDay] = useState("Monday");
-  const [startHour, setStartHour] = useState(9);
+  const [startHour, setStartHour] = useState(9); // front-end variable
   const [duration, setDuration] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loadingAI, setLoadingAI] = useState(false);
 
-  const addEvent = () => {
-    if (!title) return;
-    const newEvent: Event = {
-      id: Date.now(),
-      title,
-      type,
-      day,
-      startHour,
-      duration,
+  // --- Step 1: Get current user ---
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) console.error("User fetch error:", error);
+      setUser(data?.user || null);
+      setLoadingUser(false);
     };
-    setEvents([...events, newEvent]);
-    setTitle("");
+    fetchUser();
+  }, []);
+
+  // --- Step 2: Fetch user's events ---
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchEvents = async () => {
+      setLoadingEvents(true);
+      const { data, error } = await supabase
+        .from<Event>("events")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) console.error("Error fetching events:", error);
+      else setEvents(data || []);
+      setLoadingEvents(false);
+    };
+
+    fetchEvents();
+  }, [user]);
+
+  // --- Step 3: Add event to Supabase ---
+const addEvent = async () => {
+  if (!title || !user) return;
+
+  const newEvent = {
+    user_id: user.id,
+    title,
+    type,
+    day,
+    start_hour: startHour,
+    duration,
   };
 
+  const { data, error } = await supabase.from("events").insert([newEvent]).select();
+
+  if (error) {
+    console.error("Insert error:", error);
+    alert("Failed to add event. Check console for details.");
+    return;
+  }
+
+  // Ensure data[0] has correct keys from DB
+  if (data && data.length > 0) {
+    setEvents([...events, data[0]]);
+  }
+
+  setTitle("");
+};
+
+
+
+  // --- Step 4: AI Schedule (unchanged) ---
   const generateAISchedule = async () => {
     if (events.length === 0) return;
-    setLoading(true);
+    setLoadingAI(true);
 
     try {
       const res = await fetch("/api/ai/schedule", {
@@ -52,15 +107,19 @@ export default function SchedulePage() {
       if (!res.ok) throw new Error("Failed to generate AI schedule");
 
       const data = await res.json();
-      // data.events should be an array of Event objects from AI
       setEvents(data.events);
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Something went wrong with AI scheduling");
     } finally {
-      setLoading(false);
+      setLoadingAI(false);
     }
   };
+
+  // --- Step 5: Loading & authentication checks ---
+  if (loadingUser) return <p>Loading user...</p>;
+  if (!user) return <p>Please log in to see your schedule.</p>;
+  if (loadingEvents) return <p>Loading events...</p>;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -79,6 +138,7 @@ export default function SchedulePage() {
           <select value={type} onChange={(e) => setType(e.target.value as EventType)} className="border p-2 rounded">
             <option>Lecture</option>
             <option>Assignment</option>
+            <option>Study</option>
           </select>
           <select value={day} onChange={(e) => setDay(e.target.value)} className="border p-2 rounded">
             {daysOfWeek.map((d) => (
@@ -101,14 +161,17 @@ export default function SchedulePage() {
             onChange={(e) => setDuration(Number(e.target.value))}
             className="border p-2 rounded w-20"
           />
-          <button onClick={addEvent} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+          <button
+            onClick={addEvent}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          >
             Add
           </button>
           <button
             onClick={generateAISchedule}
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
-            {loading ? "Generating..." : "Generate AI Schedule"}
+            {loadingAI ? "Generating..." : "Generate AI Schedule"}
           </button>
         </div>
       </div>
@@ -120,7 +183,7 @@ export default function SchedulePage() {
             <ul>
               {events
                 .filter((e) => e.day === d)
-                .sort((a, b) => a.startHour - b.startHour)
+                .sort((a, b) => a.start_hour - b.start_hour)
                 .map((e) => (
                   <li
                     key={e.id}
@@ -132,7 +195,7 @@ export default function SchedulePage() {
                         : "bg-green-100"
                     }`}
                   >
-                    <strong>{e.startHour}:00</strong> - {e.title} ({e.type})
+                    <strong>{e.start_hour}:00</strong> - {e.title} ({e.type})
                   </li>
                 ))}
             </ul>
@@ -142,6 +205,8 @@ export default function SchedulePage() {
     </div>
   );
 }
+
+
 
 
 
