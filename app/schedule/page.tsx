@@ -80,22 +80,23 @@ export default function SchedulePage() {
     init();
   }, []);
 
-  /* ----------------------- Fetch events ----------------------- */
-  useEffect(() => {
-    if (!user) return;
+/* ----------------------- Fetch events ----------------------- */
+useEffect(() => {
+  if (!user) return;
 
-    const fetchEvents = async () => {
-      const { data } = await supabase
-  .from("events")
-  .select("*")
-  .eq("user_id", user.id);
+  const fetchEvents = async () => {
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("user_id", user.id);
 
-setEvents(((data as Event[]) || []));
+    if (error) console.error("Fetch events error:", error);
+    setEvents(((data as Event[]) || []));
+  };
 
-    };
+  fetchEvents();
+}, [user]);
 
-    fetchEvents();
-  }, [user]);
 
   /* ----------------------- Add event ----------------------- */
   const addEvent = async (newEvent?: Partial<Event>) => {
