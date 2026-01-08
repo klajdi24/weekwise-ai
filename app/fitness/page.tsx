@@ -40,13 +40,15 @@ export default function FitnessPage() {
 
     const fetchWorkouts = async () => {
       setLoadingWorkouts(true);
+
       const { data, error } = await supabase
-        .from<Workout>("workouts")
+        .from("workouts")
         .select("*")
         .eq("user_id", user.id);
 
       if (error) console.error("Error fetching workouts:", error);
-      else setWorkouts(data || []);
+      else setWorkouts(((data as Workout[]) || []));
+
       setLoadingWorkouts(false);
     };
 
@@ -55,45 +57,49 @@ export default function FitnessPage() {
 
   // --- Step 3: Add workout ---
   const addWorkout = async () => {
-  if (!name || !user) return;
+    if (!name || !user) return;
 
-  // Create a temporary workout object for instant display
-  const tempWorkout: Workout = {
-    id: Date.now(), // temporary ID
-    user_id: user.id,
-    name,
-    date: new Date().toISOString(),
-    duration,
-    steps,
+    // Create a temporary workout object for instant display
+    const tempWorkout: Workout = {
+      id: Date.now(), // temporary ID
+      user_id: user.id,
+      name,
+      date: new Date().toISOString(),
+      duration,
+      steps,
+    };
+
+    // Optimistically update the state
+    setWorkouts([...workouts, tempWorkout]);
+    setName("");
+
+    // Insert into Supabase (select to get inserted row back)
+    const { data, error } = await supabase
+      .from("workouts")
+      .insert([
+        {
+          user_id: user.id,
+          name,
+          date: tempWorkout.date,
+          duration,
+          steps,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error("Insert error:", error);
+      alert("Failed to add workout. Check console for details.");
+
+      // Rollback the optimistic update
+      setWorkouts(workouts);
+    } else if (data && data.length > 0) {
+      // Replace the temporary workout with the real one from Supabase
+      setWorkouts((prev) =>
+        prev.map((w) => (w.id === tempWorkout.id ? (data[0] as Workout) : w))
+      );
+    }
   };
-
-  // Optimistically update the state
-  setWorkouts([...workouts, tempWorkout]);
-  setName("");
-
-  // Insert into Supabase
-  const { data, error } = await supabase.from("workouts").insert([{
-    user_id: user.id,
-    name,
-    date: tempWorkout.date,
-    duration,
-    steps,
-  }]);
-
-  if (error) {
-    console.error("Insert error:", error);
-    alert("Failed to add workout. Check console for details.");
-
-    // Rollback the optimistic update
-    setWorkouts(workouts); 
-  } else if (data && data.length > 0) {
-    // Replace the temporary workout with the real one from Supabase
-    setWorkouts((prev) =>
-      prev.map((w) => (w.id === tempWorkout.id ? data[0] : w))
-    );
-  }
-};
-
 
   if (loadingUser) return <p>Loading user...</p>;
   if (!user) return <p>Please log in to see your workouts.</p>;
@@ -151,6 +157,7 @@ export default function FitnessPage() {
     </div>
   );
 }
+
 
 
 
