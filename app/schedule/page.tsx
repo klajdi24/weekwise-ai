@@ -86,11 +86,12 @@ export default function SchedulePage() {
 
     const fetchEvents = async () => {
       const { data } = await supabase
-        .from<Event>("events")
-        .select("*")
-        .eq("user_id", user.id);
+  .from("events")
+  .select("*")
+  .eq("user_id", user.id);
 
-      setEvents(data || []);
+setEvents(((data as Event[]) || []));
+
     };
 
     fetchEvents();
