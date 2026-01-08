@@ -1,10 +1,5 @@
-// /app/api/ai/suggest/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
 
 const DAYS = [
   "Monday",
@@ -18,17 +13,25 @@ const DAYS = [
 
 export async function POST(req: NextRequest) {
   try {
-    const { events } = await req.json();
-
-    if (!Array.isArray(events)) {
+    // ✅ Avoid module-scope OpenAI init to prevent build-time crashes
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
-        { error: "Invalid events input" },
-        { status: 400 }
+        { error: "AI is temporarily unavailable (missing OpenAI API key)." },
+        { status: 503 }
       );
     }
 
+    const openai = new OpenAI({ apiKey });
+
+    const { events } = await req.json();
+
+    if (!Array.isArray(events)) {
+      return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
+    }
+
     const prompt = `
-You are an AI assistant that suggests additional events (lectures, assignments, or study sessions) to help a university student manage their week. 
+You are an AI assistant that suggests additional events (lectures, assignments, or study sessions) to help a university student manage their week.
 
 INPUT EVENTS:
 ${JSON.stringify(events, null, 2)}
@@ -61,27 +64,20 @@ No markdown, no extra text.
       temperature: 0.5,
     });
 
-    const raw = completion.choices[0].message?.content;
+    const raw = completion.choices?.[0]?.message?.content;
 
     if (!raw) {
-      return NextResponse.json(
-        { error: "Empty AI response" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
     }
 
-    let parsed;
+    let parsed: any;
     try {
       parsed = JSON.parse(raw);
     } catch (err) {
-      console.error("AI JSON parse error:", raw);
-      return NextResponse.json(
-        { error: "AI returned invalid JSON" },
-        { status: 500 }
-      );
+      console.error("AI JSON parse error:", raw, err);
+      return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
     }
 
-    // 🔒 Validate suggestions
     const cleanedSuggestions = Array.isArray(parsed.suggestions)
       ? parsed.suggestions.filter(
           (s: any) =>
@@ -98,13 +94,14 @@ No markdown, no extra text.
       : [];
 
     return NextResponse.json({ suggestions: cleanedSuggestions });
-  } catch (err) {
+  } catch (err: any) {
     console.error("AI suggest error:", err);
     return NextResponse.json(
-      { error: "Failed to generate AI suggestions" },
+      { error: err?.message || "Failed to generate AI suggestions" },
       { status: 500 }
     );
   }
 }
+
 
 

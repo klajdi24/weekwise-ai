@@ -13,34 +13,23 @@ const DAYS = [
 
 export async function POST(req: NextRequest) {
   try {
-    // 1️⃣ Check OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("Missing OpenAI API key");
+    // ✅ Do NOT initialize OpenAI at module scope (prevents build crashes)
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
-        { error: "Server misconfigured: OpenAI API key missing" },
-        { status: 500 }
+        { error: "AI is temporarily unavailable (missing OpenAI API key)." },
+        { status: 503 }
       );
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ apiKey });
 
-    // 2️⃣ Parse incoming events
     const { events } = await req.json();
+
     if (!Array.isArray(events)) {
-      return NextResponse.json(
-        { error: "Invalid events input: must be an array" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
     }
 
-    if (events.length === 0) {
-      return NextResponse.json(
-        { error: "No events provided" },
-        { status: 400 }
-      );
-    }
-
-    // 3️⃣ Construct prompt for OpenAI
     const prompt = `
 You are a scheduling assistant for a university student.
 
@@ -72,7 +61,6 @@ OUTPUT JSON ONLY in this format:
 No markdown. No extra text.
 `;
 
-    // 4️⃣ Call OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
@@ -82,26 +70,17 @@ No markdown. No extra text.
     const raw = completion.choices?.[0]?.message?.content;
 
     if (!raw) {
-      console.error("Empty response from OpenAI");
-      return NextResponse.json(
-        { error: "OpenAI returned empty response" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
     }
 
-    // 5️⃣ Parse AI JSON safely
     let parsed: any;
     try {
       parsed = JSON.parse(raw);
     } catch (err) {
       console.error("AI JSON parse error:", raw, err);
-      return NextResponse.json(
-        { error: "OpenAI returned invalid JSON" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
     }
 
-    // 6️⃣ Validate and sanitize events
     const cleanedEvents = Array.isArray(parsed.events)
       ? parsed.events.filter(
           (e: any) =>
@@ -124,12 +103,14 @@ No markdown. No extra text.
     });
   } catch (err: any) {
     console.error("AI schedule error:", err);
+    // ✅ Pass through a useful error message if OpenAI returns 429, etc.
     return NextResponse.json(
-      { error: err.message || "Failed to generate AI schedule" },
+      { error: err?.message || "Failed to generate AI schedule" },
       { status: 500 }
     );
   }
 }
+
 
 
 

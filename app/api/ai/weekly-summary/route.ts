@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "AI is temporarily unavailable (missing OpenAI API key)." },
+        { status: 503 }
+      );
+    }
+
+    const openai = new OpenAI({ apiKey });
+
     const { events } = await req.json();
 
     const prompt = `
 You are a productivity coach.
 
 Here is a user's weekly schedule:
-${events
+${(events || [])
   .map(
     (e: any) =>
       `${e.day} at ${e.start_hour}:00 for ${e.duration}h - ${e.title} (${e.type})`
@@ -33,12 +39,12 @@ Keep it concise and friendly.
     });
 
     return NextResponse.json({
-      summary: completion.choices[0].message.content,
+      summary: completion.choices?.[0]?.message?.content || "",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     return NextResponse.json(
-      { error: "AI summary failed" },
+      { error: error?.message || "AI summary failed" },
       { status: 500 }
     );
   }
