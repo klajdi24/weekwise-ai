@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { getSupabaseClient } from "../../lib/supabaseClient";
 
 interface Workout {
   id: number;
@@ -13,6 +13,9 @@ interface Workout {
 }
 
 export default function FitnessPage() {
+  // ✅ create the client (needed)
+  const supabase = getSupabaseClient();
+
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -32,7 +35,7 @@ export default function FitnessPage() {
       setLoadingUser(false);
     };
     fetchUser();
-  }, []);
+  }, [supabase]);
 
   // --- Step 2: Fetch user's workouts ---
   useEffect(() => {
@@ -53,15 +56,14 @@ export default function FitnessPage() {
     };
 
     fetchWorkouts();
-  }, [user]);
+  }, [user, supabase]);
 
   // --- Step 3: Add workout ---
   const addWorkout = async () => {
     if (!name || !user) return;
 
-    // Create a temporary workout object for instant display
     const tempWorkout: Workout = {
-      id: Date.now(), // temporary ID
+      id: Date.now(),
       user_id: user.id,
       name,
       date: new Date().toISOString(),
@@ -69,11 +71,9 @@ export default function FitnessPage() {
       steps,
     };
 
-    // Optimistically update the state
     setWorkouts([...workouts, tempWorkout]);
     setName("");
 
-    // Insert into Supabase (select to get inserted row back)
     const { data, error } = await supabase
       .from("workouts")
       .insert([
@@ -90,11 +90,8 @@ export default function FitnessPage() {
     if (error) {
       console.error("Insert error:", error);
       alert("Failed to add workout. Check console for details.");
-
-      // Rollback the optimistic update
       setWorkouts(workouts);
     } else if (data && data.length > 0) {
-      // Replace the temporary workout with the real one from Supabase
       setWorkouts((prev) =>
         prev.map((w) => (w.id === tempWorkout.id ? (data[0] as Workout) : w))
       );
@@ -157,6 +154,7 @@ export default function FitnessPage() {
     </div>
   );
 }
+
 
 
 
