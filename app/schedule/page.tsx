@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 
@@ -35,7 +36,7 @@ const daysOfWeek = [
 ];
 
 export default function SchedulePage() {
-  // ✅ REQUIRED: create supabase client instance (you were missing this)
+  const router = useRouter(); // ✅ now actually used (prevents lint error)
   const supabase = getSupabaseClient();
 
   const [user, setUser] = useState<any>(null);
@@ -55,40 +56,73 @@ export default function SchedulePage() {
 
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
   const [aiPreviewEvents, setAiPreviewEvents] = useState<Event[] | null>(null);
-  const [highlightedSessions, setHighlightedSessions] = useState<
-    Record<string, number[]>
-  >({});
+  const [highlightedSessions, setHighlightedSessions] = useState<Record<string, number[]>>(
+    {}
+  );
 
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+
+  const getAccessTokenOrThrow = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw new Error("Failed to read session. Please log in again.");
+    const token = data?.session?.access_token;
+    if (!token) throw new Error("You are not logged in. Please log in again.");
+    return token;
+  };
 
   /* ----------------------- Fetch user + premium ----------------------- */
   useEffect(() => {
     const init = async () => {
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.error("User fetch error:", userErr);
+      try {
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        if (userErr) console.error("User fetch error:", userErr);
 
-      if (!userData?.user) {
+        if (!userData?.user) {
+          setUser(null);
+          setIsPremium(false);
+          setAiUsageCount(0);
+          setLoading(false);
+
+          // ✅ Optional but useful: send them to your login page
+          router.push("/login");
+          return;
+        }
+
+        setUser(userData.user);
+
+        const { data: profile, error: profileErr } = await supabase
+          .from("profiles")
+          .select("is_premium, ai_usage_count")
+          .eq("id", userData.user.id)
+          .maybeSingle();
+
+        if (profileErr) console.error("Profile fetch error:", profileErr);
+
+        if (!profile) {
+          const { error: upsertErr } = await supabase
+            .from("profiles")
+            .upsert(
+              [{ id: userData.user.id, is_premium: false, ai_usage_count: 0 }],
+              { onConflict: "id" }
+            );
+
+          if (upsertErr) console.error("Profile create/upsert error:", upsertErr);
+
+          setIsPremium(false);
+          setAiUsageCount(0);
+        } else {
+          setIsPremium(profile.is_premium ?? false);
+          setAiUsageCount(profile.ai_usage_count ?? 0);
+        }
+      } catch (e) {
+        console.error("Init error:", e);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setUser(userData.user);
-
-      const { data: profile, error: profileErr } = await supabase
-        .from("profiles")
-        .select("is_premium, ai_usage_count")
-        .eq("id", userData.user.id)
-        .single();
-
-      if (profileErr) console.error("Profile fetch error:", profileErr);
-
-      setIsPremium(profile?.is_premium ?? false);
-      setAiUsageCount(profile?.ai_usage_count ?? 0);
-      setLoading(false);
     };
 
     init();
-  }, [supabase]);
+  }, [supabase, router]);
 
   /* ----------------------- Fetch events ----------------------- */
   useEffect(() => {
@@ -101,7 +135,7 @@ export default function SchedulePage() {
         .eq("user_id", user.id);
 
       if (error) console.error("Fetch events error:", error);
-      setEvents(((data as Event[]) || []));
+      setEvents((data as Event[]) || []);
     };
 
     fetchEvents();
@@ -113,14 +147,7 @@ export default function SchedulePage() {
 
     const eventToAdd = newEvent
       ? { ...newEvent, user_id: user.id }
-      : {
-          user_id: user.id,
-          title,
-          type,
-          day,
-          start_hour: startHour,
-          duration,
-        };
+      : { user_id: user.id, title, type, day, start_hour: startHour, duration };
 
     const { data, error } = await supabase
       .from("events")
@@ -162,28 +189,38 @@ export default function SchedulePage() {
     setHighlightedSessions({});
 
     try {
+      const token = await getAccessTokenOrThrow();
+
       const res = await fetch("/api/ai/schedule", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ events }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.events) {
-        throw new Error(data.error || "AI scheduling failed");
-      }
+      if (!res.ok || !data.events) throw new Error(data.error || "AI scheduling failed");
 
-      setAiPreviewEvents(data.events || []);
+      const previewEvents: Event[] = (data.events || []).map((e: any, idx: number) => ({
+        id: -1 * (idx + 1),
+        user_id: user.id,
+        title: e.title,
+        type: e.type,
+        day: e.day,
+        start_hour: e.start_hour,
+        duration: e.duration,
+      }));
+
+      setAiPreviewEvents(previewEvents);
       if (data.explanation) setAiExplanation(data.explanation);
 
-      // Highlight study sessions
       const highlights: Record<string, number[]> = {};
-      (data.events || []).forEach((e: Event) => {
+      previewEvents.forEach((e) => {
         if (e.type === "Study") {
           if (!highlights[e.day]) highlights[e.day] = [];
-          for (let h = 0; h < e.duration; h++) {
-            highlights[e.day].push(e.start_hour + h);
-          }
+          for (let h = 0; h < e.duration; h++) highlights[e.day].push(e.start_hour + h);
         }
       });
       setHighlightedSessions(highlights);
@@ -191,14 +228,17 @@ export default function SchedulePage() {
       if (!isPremium) {
         const newCount = aiUsageCount + 1;
         setAiUsageCount(newCount);
-        await supabase
+
+        const { error: usageErr } = await supabase
           .from("profiles")
           .update({ ai_usage_count: newCount })
           .eq("id", user.id);
+
+        if (usageErr) console.error("AI usage update failed:", usageErr);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("AI scheduling failed");
+      alert(err?.message || "AI scheduling failed");
     } finally {
       setLoadingAI(false);
     }
@@ -209,10 +249,22 @@ export default function SchedulePage() {
     if (!aiPreviewEvents || !user) return;
 
     await supabase.from("events").delete().eq("user_id", user.id);
-    const inserts = aiPreviewEvents.map((e) => ({ ...e, user_id: user.id }));
+
+    const inserts = aiPreviewEvents.map((e) => ({
+      user_id: user.id,
+      title: e.title,
+      type: e.type,
+      day: e.day,
+      start_hour: e.start_hour,
+      duration: e.duration,
+    }));
+
     await supabase.from("events").insert(inserts);
 
-    setEvents(aiPreviewEvents);
+    const { data, error } = await supabase.from("events").select("*").eq("user_id", user.id);
+    if (error) console.error("Refetch after apply error:", error);
+    setEvents((data as Event[]) || []);
+
     setAiPreviewEvents(null);
   };
 
@@ -221,26 +273,43 @@ export default function SchedulePage() {
     if (!user) return;
 
     try {
+      const token = await getAccessTokenOrThrow();
+
       const res = await fetch("/api/ai/suggest", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ events }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.suggestions) {
-        throw new Error(data.error || "AI suggestions failed");
-      }
+      if (!res.ok || !data.suggestions) throw new Error(data.error || "AI suggestions failed");
 
       setAiSuggestions(data.suggestions);
-    } catch (err) {
+
+      if (!isPremium) {
+        const newCount = aiUsageCount + 1;
+        setAiUsageCount(newCount);
+
+        const { error: usageErr } = await supabase
+          .from("profiles")
+          .update({ ai_usage_count: newCount })
+          .eq("id", user.id);
+
+        if (usageErr) console.error("AI usage update failed:", usageErr);
+      }
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to generate AI suggestions");
+      alert(err?.message || "Failed to generate AI suggestions");
     }
   };
 
   /* ----------------------- UI ----------------------- */
   if (loading) return <p>Loading...</p>;
+
+  // (This will rarely show now because we redirect to /login)
   if (!user) return <p>Please log in to view your schedule.</p>;
 
   const displayedEvents = aiPreviewEvents ?? events;
@@ -249,12 +318,11 @@ export default function SchedulePage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <h1 className="text-3xl font-bold mb-6">📅 My Schedule</h1>
 
-      {/* ADD EVENT */}
       <div className="bg-white p-6 rounded-xl shadow mb-6">
         <h2 className="text-xl font-semibold mb-2">Add Event</h2>
         <p className="text-sm text-gray-600 mb-4">
-          🤖 <strong>AI Schedule</strong> automatically rearranges your events to
-          balance your week, add study sessions, and avoid overload.
+          🤖 <strong>AI Schedule</strong> automatically rearranges your events to balance
+          your week, add study sessions, and avoid overload.
         </p>
 
         <div className="flex flex-wrap gap-3 items-center">
@@ -265,21 +333,13 @@ export default function SchedulePage() {
             onChange={(e) => setTitle(e.target.value)}
           />
 
-          <select
-            className="border p-2 rounded"
-            value={type}
-            onChange={(e) => setType(e.target.value as EventType)}
-          >
+          <select className="border p-2 rounded" value={type} onChange={(e) => setType(e.target.value as EventType)}>
             <option>Lecture</option>
             <option>Assignment</option>
             <option>Study</option>
           </select>
 
-          <select
-            className="border p-2 rounded"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-          >
+          <select className="border p-2 rounded" value={day} onChange={(e) => setDay(e.target.value)}>
             {daysOfWeek.map((d) => (
               <option key={d}>{d}</option>
             ))}
@@ -303,26 +363,21 @@ export default function SchedulePage() {
             onChange={(e) => setDuration(Number(e.target.value))}
           />
 
-          <button
-            onClick={() => addEvent()}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
+          <button onClick={() => addEvent()} className="bg-blue-600 text-white px-4 py-2 rounded">
             Add
           </button>
 
           <button
             onClick={generateAISchedule}
             className={`px-4 py-2 rounded text-white ${
-              isPremium || aiUsageCount < FREE_LIMIT
-                ? "bg-green-600"
-                : "bg-gray-400 cursor-not-allowed"
+              isPremium || aiUsageCount < FREE_LIMIT ? "bg-green-600" : "bg-gray-400 cursor-not-allowed"
             }`}
           >
             {loadingAI
               ? "Generating..."
               : isPremium
               ? "Generate AI Schedule"
-              : `Generate AI Schedule (${FREE_LIMIT - aiUsageCount} free uses left)`}
+              : `Generate AI Schedule (${Math.max(0, FREE_LIMIT - aiUsageCount)} free uses left)`}
           </button>
 
           <button
@@ -340,42 +395,27 @@ export default function SchedulePage() {
         )}
       </div>
 
-      {/* AI EXPLANATION + Preview Controls */}
       {aiPreviewEvents && (
         <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl mb-6">
-          <h3 className="font-semibold text-purple-800 mb-2">
-            🤖 AI Schedule Preview
-          </h3>
+          <h3 className="font-semibold text-purple-800 mb-2">🤖 AI Schedule Preview</h3>
           {aiExplanation && (
-            <p className="text-sm text-purple-700 whitespace-pre-line mb-3">
-              {aiExplanation}
-            </p>
+            <p className="text-sm text-purple-700 whitespace-pre-line mb-3">{aiExplanation}</p>
           )}
 
           <div className="flex gap-3">
-            <button
-              onClick={applyAISchedule}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
+            <button onClick={applyAISchedule} className="bg-green-600 text-white px-4 py-2 rounded">
               Apply Schedule
             </button>
-            <button
-              onClick={generateAISchedule}
-              className="bg-yellow-500 text-white px-4 py-2 rounded"
-            >
+            <button onClick={generateAISchedule} className="bg-yellow-500 text-white px-4 py-2 rounded">
               Regenerate
             </button>
-            <button
-              onClick={() => setAiPreviewEvents(null)}
-              className="bg-gray-400 text-white px-4 py-2 rounded"
-            >
+            <button onClick={() => setAiPreviewEvents(null)} className="bg-gray-400 text-white px-4 py-2 rounded">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* WEEK GRID */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
         {daysOfWeek.map((d) => (
           <div key={d} className="bg-white p-4 rounded-xl shadow min-h-[150px]">
@@ -388,6 +428,8 @@ export default function SchedulePage() {
                 const isHighlighted = highlightedSessions[d]?.some(
                   (hour) => hour >= e.start_hour && hour < e.start_hour + e.duration
                 );
+
+                const canDelete = !aiPreviewEvents;
 
                 return (
                   <div
@@ -405,9 +447,13 @@ export default function SchedulePage() {
                     <div>
                       <strong>{e.start_hour}:00</strong> {e.title}
                     </div>
+
                     <button
-                      onClick={() => deleteEvent(e.id)}
-                      className="text-red-600 font-bold px-2"
+                      onClick={() => {
+                        if (!canDelete) return;
+                        deleteEvent(e.id);
+                      }}
+                      className={`text-red-600 font-bold px-2 ${canDelete ? "" : "opacity-40 cursor-not-allowed"}`}
                     >
                       ✕
                     </button>
@@ -418,13 +464,10 @@ export default function SchedulePage() {
         ))}
       </div>
 
-      {/* AI Suggestions Modal */}
       {aiSuggestions.length > 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative">
-            <h3 className="font-bold text-xl mb-4 text-purple-800">
-              🤖 AI Suggestions
-            </h3>
+            <h3 className="font-bold text-xl mb-4 text-purple-800">🤖 AI Suggestions</h3>
 
             <button
               className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 font-bold text-lg"
@@ -459,6 +502,8 @@ export default function SchedulePage() {
     </div>
   );
 }
+
+
 
 
 

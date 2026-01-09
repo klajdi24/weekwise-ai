@@ -27,6 +27,11 @@ export default function Navbar() {
           <Link href="/profile" className="hover:underline">
             Profile
           </Link>
+          
+          <Link href="/login" className="hover:underline">
+  Login
+</Link>
+
         </div>
       </div>
     </nav>

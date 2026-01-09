@@ -1,19 +1,53 @@
+// app/api/ai/suggest/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
+const FREE_LIMIT = 3;
+
+function getBearerToken(req: NextRequest) {
+  const auth = req.headers.get("authorization") || "";
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] || null;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    // ✅ Avoid module-scope OpenAI init to prevent build-time crashes
+    const token = getBearerToken(req);
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized: missing session token" }, { status: 401 });
+    }
+
+    const supabase = createAuthedSupabaseClient(token);
+
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userRes?.user) {
+      return NextResponse.json({ error: "Unauthorized: invalid session" }, { status: 401 });
+    }
+    const user = userRes.user;
+
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("is_premium, ai_usage_count")
+      .eq("id", user.id)
+      .single();
+
+    if (profileErr) {
+      return NextResponse.json({ error: "Failed to load profile" }, { status: 500 });
+    }
+
+    const isPremium = !!profile?.is_premium;
+    const usage = Number(profile?.ai_usage_count ?? 0);
+
+    if (!isPremium && usage >= FREE_LIMIT) {
+      return NextResponse.json(
+        { error: "Free AI uses exhausted. Upgrade to Premium for unlimited suggestions." },
+        { status: 402 }
+      );
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -21,11 +55,9 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-
     const openai = new OpenAI({ apiKey });
 
     const { events } = await req.json();
-
     if (!Array.isArray(events)) {
       return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
     }
@@ -65,7 +97,6 @@ No markdown, no extra text.
     });
 
     const raw = completion.choices?.[0]?.message?.content;
-
     if (!raw) {
       return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
     }
@@ -93,13 +124,18 @@ No markdown, no extra text.
         )
       : [];
 
+    // ✅ Increment usage after successful call (free users only)
+    if (!isPremium) {
+      await supabase
+        .from("profiles")
+        .update({ ai_usage_count: usage + 1 })
+        .eq("id", user.id);
+    }
+
     return NextResponse.json({ suggestions: cleanedSuggestions });
   } catch (err: any) {
     console.error("AI suggest error:", err);
-    return NextResponse.json(
-      { error: err?.message || "Failed to generate AI suggestions" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err?.message || "Failed to generate AI suggestions" }, { status: 500 });
   }
 }
 

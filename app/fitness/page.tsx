@@ -1,20 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 interface Workout {
   id: number;
   user_id: string;
   name: string;
   date: string;
-  duration: number; // in minutes
+  duration: number; // minutes
   steps: number;
 }
 
 export default function FitnessPage() {
-  // ✅ create the client (needed)
   const supabase = getSupabaseClient();
+  const router = useRouter();
 
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -26,7 +27,7 @@ export default function FitnessPage() {
   const [duration, setDuration] = useState(30);
   const [steps, setSteps] = useState(2000);
 
-  // --- Step 1: Get current user ---
+  // 1) Get current user
   useEffect(() => {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -37,9 +38,17 @@ export default function FitnessPage() {
     fetchUser();
   }, [supabase]);
 
-  // --- Step 2: Fetch user's workouts ---
+  // 2) Redirect if not logged in
   useEffect(() => {
-    if (!user) return;
+    if (!loadingUser && !user) router.replace("/login");
+  }, [loadingUser, user, router]);
+
+  // 3) Fetch workouts
+  useEffect(() => {
+    if (!user) {
+      setLoadingWorkouts(false);
+      return;
+    }
 
     const fetchWorkouts = async () => {
       setLoadingWorkouts(true);
@@ -50,7 +59,7 @@ export default function FitnessPage() {
         .eq("user_id", user.id);
 
       if (error) console.error("Error fetching workouts:", error);
-      else setWorkouts(((data as Workout[]) || []));
+      else setWorkouts((data as Workout[]) || []);
 
       setLoadingWorkouts(false);
     };
@@ -58,7 +67,7 @@ export default function FitnessPage() {
     fetchWorkouts();
   }, [user, supabase]);
 
-  // --- Step 3: Add workout ---
+  // 4) Add workout
   const addWorkout = async () => {
     if (!name || !user) return;
 
@@ -71,7 +80,7 @@ export default function FitnessPage() {
       steps,
     };
 
-    setWorkouts([...workouts, tempWorkout]);
+    setWorkouts((prev) => [...prev, tempWorkout]);
     setName("");
 
     const { data, error } = await supabase
@@ -90,8 +99,11 @@ export default function FitnessPage() {
     if (error) {
       console.error("Insert error:", error);
       alert("Failed to add workout. Check console for details.");
-      setWorkouts(workouts);
-    } else if (data && data.length > 0) {
+      setWorkouts((prev) => prev.filter((w) => w.id !== tempWorkout.id));
+      return;
+    }
+
+    if (data && data.length > 0) {
       setWorkouts((prev) =>
         prev.map((w) => (w.id === tempWorkout.id ? (data[0] as Workout) : w))
       );
@@ -99,7 +111,7 @@ export default function FitnessPage() {
   };
 
   if (loadingUser) return <p>Loading user...</p>;
-  if (!user) return <p>Please log in to see your workouts.</p>;
+  if (!user) return <p>Redirecting to login...</p>;
   if (loadingWorkouts) return <p>Loading workouts...</p>;
 
   return (
