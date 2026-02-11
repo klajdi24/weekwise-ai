@@ -1,0 +1,24 @@
+WeekWiseAI status (working log)
+
+Cycle 2026-02-11 08:24-08:34 GMT
+- Added AI Notes API with authenticated generation and free/premium usage gating.
+- Rebuilt /notes page into Lecture Notes Studio:
+  - module tagging
+  - summarize/quiz modes
+  - key bullets + key terms + quiz questions
+  - XP reward feedback + remaining free AI counter
+  - login guard + robust error states
+
+Cycle 2026-02-11 08:34-08:42 GMT
+- Added Today Dashboard API (/api/dashboard/today) for next event, top priorities, and weekly study/fitness counts.
+- Rebuilt homepage into a real Today dashboard:
+  - next class/deadline card
+  - top 3 priorities card
+  - 25-minute focus timer quick start
+  - momentum pulse + next action
+  - feature cards remain linked for fast navigation
+
+Next priority
+- Pivot essay feature into Writing Lab (brief analyzer + draft feedback + argument map)
+- Task model + CRUD + subtask breaker flow
+- Shared loading/empty/error states hardening across schedule/fitness/profile
