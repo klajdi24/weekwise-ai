@@ -65,6 +65,20 @@ export async function GET(req: NextRequest) {
     const streakStatus = streak >= 7 ? "safe" : streak >= 3 ? "warming" : "risk";
     const consistencyScore = Math.min(100, Math.round((studyCount * 8 + workoutCount * 10 + eventCount * 2) / 3));
 
+    const nextBestAction =
+      streakStatus === "risk"
+        ? "Log one workout or add one study block today to protect your streak."
+        : streakStatus === "warming"
+        ? "You are close to a safe streak — complete one more key action today."
+        : "Great pace. Keep your streak alive by planning tomorrow before bed.";
+
+    const streakAdvice =
+      streakStatus === "risk"
+        ? "Streak is fragile"
+        : streakStatus === "warming"
+        ? "Streak is building"
+        : "Streak is stable";
+
     const dailyGoalTarget = 3;
     const dailyGoalDone = Math.min(dailyGoalTarget, Math.floor((studyCount + workoutCount) / 2));
 
@@ -101,6 +115,8 @@ export async function GET(req: NextRequest) {
       dailyGoalDone,
       badges,
       checklist,
+      nextBestAction,
+      streakAdvice,
       latestWorkoutAt: latestWorkoutDate?.toISOString() ?? null,
       isPremium: !!profile?.is_premium,
     });
