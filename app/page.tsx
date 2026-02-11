@@ -77,7 +77,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-5">
           <div className="bg-white p-6 rounded-2xl border border-indigo-100 shadow hover:shadow-lg transition">
             <h2 className="text-xl font-semibold mb-2">📚 Academic Schedule</h2>
             <p className="text-gray-600 mb-4">View, add, and optimize classes and assignments.</p>
@@ -107,6 +107,14 @@ export default function Home() {
             <p className="text-gray-600 mb-4">Track daily wins, XP and streak risk in one view.</p>
             <Link href="/momentum">
               <button className="bg-fuchsia-600 text-white px-4 py-2 rounded-lg hover:bg-fuchsia-700 transition">Open Momentum</button>
+            </Link>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow hover:shadow-lg transition">
+            <h2 className="text-xl font-semibold mb-2">✍️ Essay Coach</h2>
+            <p className="text-gray-600 mb-4">Create outlines, drafts, and improved essays with study checklists.</p>
+            <Link href="/essay">
+              <button className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition">Open Essay Coach</button>
             </Link>
           </div>
 

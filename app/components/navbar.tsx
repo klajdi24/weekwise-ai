@@ -36,6 +36,10 @@ export default function Navbar() {
             Pricing
           </Link>
 
+          <Link href="/essay" className="hover:underline">
+            Essay
+          </Link>
+
           <Link href="/login" className="hover:underline">
             Login
           </Link>
