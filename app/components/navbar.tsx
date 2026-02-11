@@ -27,10 +27,18 @@ export default function Navbar() {
           <Link href="/profile" className="hover:underline">
             Profile
           </Link>
-          
+
+          <Link href="/momentum" className="hover:underline">
+            Momentum
+          </Link>
+
+          <Link href="/pricing" className="hover:underline">
+            Pricing
+          </Link>
+
           <Link href="/login" className="hover:underline">
-  Login
-</Link>
+            Login
+          </Link>
 
         </div>
       </div>
