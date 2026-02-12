@@ -1,0 +1,10 @@
+ OPENCLAW_STATUS.txt                |  42 ++--
+ app/api/ai/schedule/route.ts       | 104 +++++----
+ app/api/ai/suggest/route.ts        |  64 +++---
+ app/api/ai/weekly-summary/route.ts |  27 +--
+ app/fitness/page.tsx               | 255 ++++++++++++++--------
+ app/login/page.tsx                 |   5 +
+ app/schedule/page.tsx              | 423 ++++++++++++++++++-------------------
+ app/test/page.tsx                  |  63 ++++--
+ lib/supabaseClient.ts              |  17 +-
+ 9 files changed, 563 insertions(+), 437 deletions(-)

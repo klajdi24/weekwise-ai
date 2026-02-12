@@ -1,0 +1,1492 @@
+diff --git a/OPENCLAW_STATUS.txt b/OPENCLAW_STATUS.txt
+index d51c627..ca5a7ad 100644
+--- a/OPENCLAW_STATUS.txt
++++ b/OPENCLAW_STATUS.txt
+@@ -1,24 +1,18 @@
+-WeekWiseAI status (working log)
+-
+-Cycle 2026-02-11 08:24-08:34 GMT
+-- Added AI Notes API with authenticated generation and free/premium usage gating.
+-- Rebuilt /notes page into Lecture Notes Studio:
+-  - module tagging
+-  - summarize/quiz modes
+-  - key bullets + key terms + quiz questions
+-  - XP reward feedback + remaining free AI counter
+-  - login guard + robust error states
+-
+-Cycle 2026-02-11 08:34-08:42 GMT
+-- Added Today Dashboard API (/api/dashboard/today) for next event, top priorities, and weekly study/fitness counts.
+-- Rebuilt homepage into a real Today dashboard:
+-  - next class/deadline card
+-  - top 3 priorities card
+-  - 25-minute focus timer quick start
+-  - momentum pulse + next action
+-  - feature cards remain linked for fast navigation
+-
+-Next priority
+-- Pivot essay feature into Writing Lab (brief analyzer + draft feedback + argument map)
+-- Task model + CRUD + subtask breaker flow
+-- Shared loading/empty/error states hardening across schedule/fitness/profile
++ M OPENCLAW_STATUS.txt
++ M app/api/ai/schedule/route.ts
++ M app/api/ai/suggest/route.ts
++ M app/api/ai/weekly-summary/route.ts
++ M app/fitness/page.tsx
++ M app/login/page.tsx
++ M app/schedule/page.tsx
++ M app/test/page.tsx
++ M lib/supabaseClient.ts
++?? CHATGPT_NOTES.md
++?? DELIVERY_PLAN.md
++?? MONETIZATION_PLAN.md
++?? OPENCLAW_BOOTSTRAP.md
++?? OPENCLAW_DIFFSTAT.txt
++?? OPENCLAW_LOCAL_CHANGES.patch
++?? OPENCLAW_LOG.txt
++?? PROJECT_AUDIT.md
++?? lib/types.ts
+diff --git a/app/api/ai/schedule/route.ts b/app/api/ai/schedule/route.ts
+index 8b03d42..07ca052 100644
+--- a/app/api/ai/schedule/route.ts
++++ b/app/api/ai/schedule/route.ts
+@@ -1,21 +1,63 @@
+-// app/api/ai/schedule/route.ts
+ import { NextRequest, NextResponse } from "next/server";
+ import OpenAI from "openai";
+ import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
+ 
+ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+-
++const EVENT_TYPES = ["Lecture", "Assignment", "Study"] as const;
+ const FREE_LIMIT = 3;
+ 
++type EventType = (typeof EVENT_TYPES)[number];
++type DayName = (typeof DAYS)[number];
++
++interface ScheduleEventPayload {
++  title: string;
++  type: EventType;
++  day: DayName;
++  start_hour: number;
++  duration: number;
++}
++
++interface ScheduleResponsePayload {
++  events?: unknown;
++  explanation?: string;
++}
++
++type PlanMode = "balanced" | "deep_focus" | "light_week";
++
+ function getBearerToken(req: NextRequest) {
+   const auth = req.headers.get("authorization") || "";
+   const match = auth.match(/^Bearer\s+(.+)$/i);
+   return match?.[1] || null;
+ }
+ 
++function isScheduleEventPayload(value: unknown): value is ScheduleEventPayload {
++  if (!value || typeof value !== "object") return false;
++  const record = value as Record<string, unknown>;
++
++  return (
++    typeof record.title === "string" &&
++    EVENT_TYPES.includes(record.type as EventType) &&
++    DAYS.includes(record.day as DayName) &&
++    Number.isInteger(record.start_hour) &&
++    Number(record.start_hour) >= 0 &&
++    Number(record.start_hour) <= 23 &&
++    Number.isFinite(record.duration) &&
++    Number(record.duration) > 0
++  );
++}
++
++function normalizeEvent(input: ScheduleEventPayload): ScheduleEventPayload {
++  return {
++    title: input.title.trim().slice(0, 80) || "Untitled",
++    type: input.type,
++    day: input.day,
++    start_hour: Math.max(8, Math.min(21, Math.trunc(input.start_hour))),
++    duration: Math.max(1, Math.min(4, Math.trunc(input.duration))),
++  };
++}
++
+ export async function POST(req: NextRequest) {
+   try {
+-    // ✅ Require auth
+     const token = getBearerToken(req);
+     if (!token) {
+       return NextResponse.json({ error: "Unauthorized: missing session token" }, { status: 401 });
+@@ -23,14 +65,12 @@ export async function POST(req: NextRequest) {
+ 
+     const supabase = createAuthedSupabaseClient(token);
+ 
+-    // ✅ Validate token + get user
+     const { data: userRes, error: userErr } = await supabase.auth.getUser();
+     if (userErr || !userRes?.user) {
+       return NextResponse.json({ error: "Unauthorized: invalid session" }, { status: 401 });
+     }
+     const user = userRes.user;
+ 
+-    // ✅ Premium + usage check (server-side)
+     const { data: profile, error: profileErr } = await supabase
+       .from("profiles")
+       .select("is_premium, ai_usage_count")
+@@ -51,7 +91,6 @@ export async function POST(req: NextRequest) {
+       );
+     }
+ 
+-    // ✅ OpenAI key check
+     const apiKey = process.env.OPENAI_API_KEY;
+     if (!apiKey) {
+       return NextResponse.json(
+@@ -61,14 +100,28 @@ export async function POST(req: NextRequest) {
+     }
+     const openai = new OpenAI({ apiKey });
+ 
+-    const { events } = await req.json();
++    const { events, mode } = (await req.json()) as { events?: unknown[]; mode?: PlanMode };
+     if (!Array.isArray(events)) {
+       return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
+     }
+ 
++    const planMode: PlanMode = mode && ["balanced", "deep_focus", "light_week"].includes(mode)
++      ? mode
++      : "balanced";
++
++    const modeInstruction =
++      planMode === "deep_focus"
++        ? "Prioritize longer study blocks and fewer context switches."
++        : planMode === "light_week"
++        ? "Reduce overload and keep energy sustainable with lighter distribution."
++        : "Balance workload and recovery across the week.";
++
+     const prompt = `
+ You are a scheduling assistant for a university student.
+ 
++PLANNING MODE: ${planMode}
++MODE GOAL: ${modeInstruction}
++
+ INPUT EVENTS:
+ ${JSON.stringify(events, null, 2)}
+ 
+@@ -108,29 +161,17 @@ No markdown. No extra text.
+       return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
+     }
+ 
+-    let parsed: any;
++    let parsed: ScheduleResponsePayload;
+     try {
+-      parsed = JSON.parse(raw);
+-    } catch (err) {
+-      console.error("AI JSON parse error:", raw, err);
++      parsed = JSON.parse(raw) as ScheduleResponsePayload;
++    } catch {
+       return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+     }
+ 
+     const cleanedEvents = Array.isArray(parsed.events)
+-      ? parsed.events.filter(
+-          (e: any) =>
+-            typeof e.title === "string" &&
+-            ["Lecture", "Assignment", "Study"].includes(e.type) &&
+-            DAYS.includes(e.day) &&
+-            Number.isInteger(e.start_hour) &&
+-            e.start_hour >= 0 &&
+-            e.start_hour <= 23 &&
+-            Number.isFinite(e.duration) &&
+-            e.duration > 0
+-        )
++      ? parsed.events.filter(isScheduleEventPayload).map((e) => normalizeEvent(e))
+       : [];
+ 
+-    // ✅ Increment usage after successful call (free users only)
+     if (!isPremium) {
+       await supabase
+         .from("profiles")
+@@ -144,19 +185,8 @@ No markdown. No extra text.
+         parsed.explanation ||
+         "This schedule balances your workload and adds study time ahead of deadlines to reduce stress.",
+     });
+-  } catch (err: any) {
+-    console.error("AI schedule error:", err);
+-    return NextResponse.json({ error: err?.message || "Failed to generate AI schedule" }, { status: 500 });
++  } catch (error: unknown) {
++    const message = error instanceof Error ? error.message : "Failed to generate AI schedule";
++    return NextResponse.json({ error: message }, { status: 500 });
+   }
+ }
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+diff --git a/app/api/ai/suggest/route.ts b/app/api/ai/suggest/route.ts
+index 7e8fd2d..60e0c2f 100644
+--- a/app/api/ai/suggest/route.ts
++++ b/app/api/ai/suggest/route.ts
+@@ -1,18 +1,46 @@
+-// app/api/ai/suggest/route.ts
+ import { NextRequest, NextResponse } from "next/server";
+ import OpenAI from "openai";
+ import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
+ 
+ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+-
++const EVENT_TYPES = ["Lecture", "Assignment", "Study"] as const;
+ const FREE_LIMIT = 3;
+ 
++type EventType = (typeof EVENT_TYPES)[number];
++type DayName = (typeof DAYS)[number];
++
++interface SuggestionPayload {
++  title: string;
++  type: EventType;
++  day: DayName;
++  start_hour: number;
++  duration: number;
++  description: string;
++}
++
+ function getBearerToken(req: NextRequest) {
+   const auth = req.headers.get("authorization") || "";
+   const match = auth.match(/^Bearer\s+(.+)$/i);
+   return match?.[1] || null;
+ }
+ 
++function isSuggestionPayload(value: unknown): value is SuggestionPayload {
++  if (!value || typeof value !== "object") return false;
++  const record = value as Record<string, unknown>;
++
++  return (
++    typeof record.title === "string" &&
++    EVENT_TYPES.includes(record.type as EventType) &&
++    DAYS.includes(record.day as DayName) &&
++    Number.isInteger(record.start_hour) &&
++    Number(record.start_hour) >= 0 &&
++    Number(record.start_hour) <= 23 &&
++    Number.isFinite(record.duration) &&
++    Number(record.duration) > 0 &&
++    typeof record.description === "string"
++  );
++}
++
+ export async function POST(req: NextRequest) {
+   try {
+     const token = getBearerToken(req);
+@@ -57,7 +85,7 @@ export async function POST(req: NextRequest) {
+     }
+     const openai = new OpenAI({ apiKey });
+ 
+-    const { events } = await req.json();
++    const { events } = (await req.json()) as { events?: unknown[] };
+     if (!Array.isArray(events)) {
+       return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
+     }
+@@ -101,30 +129,17 @@ No markdown, no extra text.
+       return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
+     }
+ 
+-    let parsed: any;
++    let parsed: { suggestions?: unknown };
+     try {
+-      parsed = JSON.parse(raw);
+-    } catch (err) {
+-      console.error("AI JSON parse error:", raw, err);
++      parsed = JSON.parse(raw) as { suggestions?: unknown };
++    } catch {
+       return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+     }
+ 
+     const cleanedSuggestions = Array.isArray(parsed.suggestions)
+-      ? parsed.suggestions.filter(
+-          (s: any) =>
+-            typeof s.title === "string" &&
+-            ["Lecture", "Assignment", "Study"].includes(s.type) &&
+-            DAYS.includes(s.day) &&
+-            Number.isInteger(s.start_hour) &&
+-            s.start_hour >= 0 &&
+-            s.start_hour <= 23 &&
+-            Number.isFinite(s.duration) &&
+-            s.duration > 0 &&
+-            typeof s.description === "string"
+-        )
++      ? parsed.suggestions.filter(isSuggestionPayload)
+       : [];
+ 
+-    // ✅ Increment usage after successful call (free users only)
+     if (!isPremium) {
+       await supabase
+         .from("profiles")
+@@ -133,11 +148,8 @@ No markdown, no extra text.
+     }
+ 
+     return NextResponse.json({ suggestions: cleanedSuggestions });
+-  } catch (err: any) {
+-    console.error("AI suggest error:", err);
+-    return NextResponse.json({ error: err?.message || "Failed to generate AI suggestions" }, { status: 500 });
++  } catch (error: unknown) {
++    const message = error instanceof Error ? error.message : "Failed to generate AI suggestions";
++    return NextResponse.json({ error: message }, { status: 500 });
+   }
+ }
+-
+-
+-
+diff --git a/app/api/ai/weekly-summary/route.ts b/app/api/ai/weekly-summary/route.ts
+index 76c2e19..eb1bbb1 100644
+--- a/app/api/ai/weekly-summary/route.ts
++++ b/app/api/ai/weekly-summary/route.ts
+@@ -1,6 +1,14 @@
+ import { NextResponse } from "next/server";
+ import OpenAI from "openai";
+ 
++interface WeeklyEvent {
++  day: string;
++  start_hour: number;
++  duration: number;
++  title: string;
++  type: string;
++}
++
+ export async function POST(req: Request) {
+   try {
+     const apiKey = process.env.OPENAI_API_KEY;
+@@ -13,17 +21,15 @@ export async function POST(req: Request) {
+ 
+     const openai = new OpenAI({ apiKey });
+ 
+-    const { events } = await req.json();
++    const body = (await req.json()) as { events?: WeeklyEvent[] };
++    const events = Array.isArray(body.events) ? body.events : [];
+ 
+     const prompt = `
+ You are a productivity coach.
+ 
+ Here is a user's weekly schedule:
+-${(events || [])
+-  .map(
+-    (e: any) =>
+-      `${e.day} at ${e.start_hour}:00 for ${e.duration}h - ${e.title} (${e.type})`
+-  )
++${events
++  .map((e) => `${e.day} at ${e.start_hour}:00 for ${e.duration}h - ${e.title} (${e.type})`)
+   .join("\n")}
+ 
+ Give:
+@@ -41,11 +47,8 @@ Keep it concise and friendly.
+     return NextResponse.json({
+       summary: completion.choices?.[0]?.message?.content || "",
+     });
+-  } catch (error: any) {
+-    console.error(error);
+-    return NextResponse.json(
+-      { error: error?.message || "AI summary failed" },
+-      { status: 500 }
+-    );
++  } catch (error: unknown) {
++    const message = error instanceof Error ? error.message : "AI summary failed";
++    return NextResponse.json({ error: message }, { status: 500 });
+   }
+ }
+diff --git a/app/fitness/page.tsx b/app/fitness/page.tsx
+index c623b84..522db26 100644
+--- a/app/fitness/page.tsx
++++ b/app/fitness/page.tsx
+@@ -1,23 +1,25 @@
+ "use client";
+ 
+-import { useEffect, useState } from "react";
++import Link from "next/link";
++import { useEffect, useMemo, useState } from "react";
+ import { getSupabaseClient } from "../../lib/supabaseClient";
+ import { useRouter } from "next/navigation";
+-
+-interface Workout {
+-  id: number;
+-  user_id: string;
+-  name: string;
+-  date: string;
+-  duration: number; // minutes
+-  steps: number;
++import type { User } from "@supabase/supabase-js";
++import type { Workout } from "@/lib/types";
++
++interface GamificationSummary {
++  xp: number;
++  level: number;
++  streak: number;
++  dailyGoalTarget: number;
++  dailyGoalDone: number;
+ }
+ 
+ export default function FitnessPage() {
+   const supabase = getSupabaseClient();
+   const router = useRouter();
+ 
+-  const [user, setUser] = useState<any>(null);
++  const [user, setUser] = useState<User | null>(null);
+   const [loadingUser, setLoadingUser] = useState(true);
+ 
+   const [workouts, setWorkouts] = useState<Workout[]>([]);
+@@ -27,54 +29,96 @@ export default function FitnessPage() {
+   const [duration, setDuration] = useState(30);
+   const [steps, setSteps] = useState(2000);
+ 
+-  // 1) Get current user
++  const [summary, setSummary] = useState<GamificationSummary | null>(null);
++
+   useEffect(() => {
++    if (!supabase) return;
++
++    let active = true;
++
+     const fetchUser = async () => {
+       const { data, error } = await supabase.auth.getUser();
+       if (error) console.error("User fetch error:", error);
+-      setUser(data?.user || null);
+-      setLoadingUser(false);
++
++      if (active) {
++        setUser(data?.user || null);
++        setLoadingUser(false);
++      }
+     };
++
+     fetchUser();
++
++    return () => {
++      active = false;
++    };
+   }, [supabase]);
+ 
+-  // 2) Redirect if not logged in
+   useEffect(() => {
+     if (!loadingUser && !user) router.replace("/login");
+   }, [loadingUser, user, router]);
+ 
+-  // 3) Fetch workouts
+   useEffect(() => {
+-    if (!user) {
+-      setLoadingWorkouts(false);
+-      return;
+-    }
++    let active = true;
+ 
+     const fetchWorkouts = async () => {
+-      setLoadingWorkouts(true);
++      if (!user) {
++        if (active) {
++          setWorkouts([]);
++          setLoadingWorkouts(false);
++        }
++        return;
++      }
+ 
+-      const { data, error } = await supabase
+-        .from("workouts")
+-        .select("*")
+-        .eq("user_id", user.id);
++      const { data, error } = await supabase.from("workouts").select("*").eq("user_id", user.id);
+ 
+       if (error) console.error("Error fetching workouts:", error);
+-      else setWorkouts((data as Workout[]) || []);
+ 
+-      setLoadingWorkouts(false);
++      if (active) {
++        setWorkouts((data as Workout[]) || []);
++        setLoadingWorkouts(false);
++      }
+     };
+ 
+     fetchWorkouts();
++
++    return () => {
++      active = false;
++    };
+   }, [user, supabase]);
+ 
+-  // 4) Add workout
++  useEffect(() => {
++    if (!supabase || !user) return;
++
++    const fetchSummary = async () => {
++      try {
++        const { data: sessionData } = await supabase.auth.getSession();
++        const token = sessionData?.session?.access_token;
++        if (!token) return;
++
++        const res = await fetch("/api/gamification/summary", {
++          headers: {
++            Authorization: `Bearer ${token}`,
++          },
++        });
++
++        if (!res.ok) return;
++        const data = (await res.json()) as GamificationSummary;
++        setSummary(data);
++      } catch (e) {
++        console.error("Summary fetch failed", e);
++      }
++    };
++
++    fetchSummary();
++  }, [supabase, user, workouts.length]);
++
+   const addWorkout = async () => {
+-    if (!name || !user) return;
++    if (!supabase || !name.trim() || !user) return;
+ 
+     const tempWorkout: Workout = {
+       id: Date.now(),
+       user_id: user.id,
+-      name,
++      name: name.trim(),
+       date: new Date().toISOString(),
+       duration,
+       steps,
+@@ -88,7 +132,7 @@ export default function FitnessPage() {
+       .insert([
+         {
+           user_id: user.id,
+-          name,
++          name: tempWorkout.name,
+           date: tempWorkout.date,
+           duration,
+           steps,
+@@ -98,77 +142,112 @@ export default function FitnessPage() {
+ 
+     if (error) {
+       console.error("Insert error:", error);
+-      alert("Failed to add workout. Check console for details.");
++      alert("Failed to add workout. Please try again.");
+       setWorkouts((prev) => prev.filter((w) => w.id !== tempWorkout.id));
+       return;
+     }
+ 
+     if (data && data.length > 0) {
+-      setWorkouts((prev) =>
+-        prev.map((w) => (w.id === tempWorkout.id ? (data[0] as Workout) : w))
+-      );
++      setWorkouts((prev) => prev.map((w) => (w.id === tempWorkout.id ? (data[0] as Workout) : w)));
+     }
+   };
+ 
++  const totalSteps = useMemo(() => workouts.reduce((acc, w) => acc + Number(w.steps || 0), 0), [workouts]);
++
++  if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
+   if (loadingUser) return <p>Loading user...</p>;
+   if (!user) return <p>Redirecting to login...</p>;
+   if (loadingWorkouts) return <p>Loading workouts...</p>;
+ 
+   return (
+-    <div className="min-h-screen bg-gray-50 p-6">
+-      <h1 className="text-3xl font-bold mb-6">🏋️ Fitness</h1>
+-
+-      <div className="bg-white p-6 rounded-xl shadow mb-6">
+-        <h2 className="text-xl font-semibold mb-4">Add Workout</h2>
+-        <div className="flex flex-wrap gap-4">
+-          <input
+-            type="text"
+-            placeholder="Workout Name"
+-            className="border p-2 rounded flex-1"
+-            value={name}
+-            onChange={(e) => setName(e.target.value)}
+-          />
+-          <input
+-            type="number"
+-            min={1}
+-            value={duration}
+-            onChange={(e) => setDuration(Number(e.target.value))}
+-            className="border p-2 rounded w-24"
+-            placeholder="Duration (min)"
+-          />
+-          <input
+-            type="number"
+-            min={0}
+-            value={steps}
+-            onChange={(e) => setSteps(Number(e.target.value))}
+-            className="border p-2 rounded w-24"
+-            placeholder="Steps"
+-          />
+-          <button
+-            onClick={addWorkout}
+-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+-          >
+-            Add
+-          </button>
+-        </div>
+-      </div>
+-
+-      <div className="bg-white p-6 rounded-xl shadow">
+-        <h2 className="text-xl font-semibold mb-4">My Workouts</h2>
+-        <ul>
+-          {workouts.map((w) => (
+-            <li key={w.id} className="p-2 border-b">
+-              {w.name} - {w.duration} min, {w.steps} steps
+-            </li>
+-          ))}
+-        </ul>
++    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-indigo-100 p-6 md:p-8">
++      <div className="max-w-6xl mx-auto space-y-6">
++        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
++          <h1 className="text-3xl font-bold">🏋️ Fitness & Energy</h1>
++          <p className="text-slate-300 mt-2">Stay physically active to keep your study performance sharp and your streak alive.</p>
++          <div className="mt-4 flex flex-wrap gap-2 text-sm">
++            <Link href="/schedule" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">↔ Schedule</Link>
++            <Link href="/momentum" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">⚡ Momentum</Link>
++            <Link href="/profile" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">👤 Profile</Link>
++          </div>
++        </section>
++
++        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
++          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
++            <p className="text-xs uppercase tracking-wide text-slate-500">Workouts</p>
++            <p className="text-3xl font-bold mt-1">{workouts.length}</p>
++          </div>
++          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
++            <p className="text-xs uppercase tracking-wide text-slate-500">Total Steps</p>
++            <p className="text-3xl font-bold mt-1">{totalSteps.toLocaleString()}</p>
++          </div>
++          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
++            <p className="text-xs uppercase tracking-wide text-slate-500">XP</p>
++            <p className="text-3xl font-bold mt-1">{summary?.xp ?? 0}</p>
++          </div>
++          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
++            <p className="text-xs uppercase tracking-wide text-slate-500">Streak</p>
++            <p className="text-3xl font-bold mt-1">🔥 {summary?.streak ?? 0}</p>
++          </div>
++        </section>
++
++        <section className="bg-white p-6 rounded-2xl border border-emerald-100 shadow">
++          <h2 className="text-xl font-semibold mb-4">Add Workout</h2>
++          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
++            <input
++              type="text"
++              placeholder="Workout Name"
++              className="border p-2 rounded-lg"
++              value={name}
++              onChange={(e) => setName(e.target.value)}
++            />
++            <input
++              type="number"
++              min={1}
++              value={duration}
++              onChange={(e) => setDuration(Number(e.target.value))}
++              className="border p-2 rounded-lg"
++              placeholder="Duration (min)"
++            />
++            <input
++              type="number"
++              min={0}
++              value={steps}
++              onChange={(e) => setSteps(Number(e.target.value))}
++              className="border p-2 rounded-lg"
++              placeholder="Steps"
++            />
++            <button onClick={addWorkout} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition">
++              Add Workout
++            </button>
++          </div>
++          <p className="text-xs text-slate-500 mt-3">
++            Daily goal progress: {summary?.dailyGoalDone ?? 0}/{summary?.dailyGoalTarget ?? 0}
++          </p>
++        </section>
++
++        <section className="bg-white p-6 rounded-2xl shadow border border-emerald-100">
++          <h2 className="text-xl font-semibold mb-4">Recent Workouts</h2>
++          {workouts.length === 0 ? (
++            <p className="text-slate-500">No workouts yet. Add your first one and build momentum.</p>
++          ) : (
++            <ul className="space-y-2">
++              {workouts
++                .slice()
++                .reverse()
++                .map((w) => (
++                  <li key={w.id} className="p-3 border rounded-lg flex items-center justify-between">
++                    <div>
++                      <p className="font-semibold">{w.name}</p>
++                      <p className="text-sm text-slate-500">{new Date(w.date).toLocaleString()}</p>
++                    </div>
++                    <p className="text-sm font-semibold text-slate-700">{w.duration}m • {w.steps} steps</p>
++                  </li>
++                ))}
++            </ul>
++          )}
++        </section>
+       </div>
+-    </div>
++    </main>
+   );
+ }
+-
+-
+-
+-
+-
+-
+diff --git a/app/login/page.tsx b/app/login/page.tsx
+index ac63b18..5410f64 100644
+--- a/app/login/page.tsx
++++ b/app/login/page.tsx
+@@ -14,6 +14,11 @@ export default function LoginPage() {
+   const [errorMsg, setErrorMsg] = useState("");
+ 
+   const handleLogin = async () => {
++    if (!supabase) {
++      setErrorMsg("App is not configured. Missing Supabase environment variables.");
++      return;
++    }
++
+     setLoading(true);
+     setErrorMsg("");
+ 
+diff --git a/app/schedule/page.tsx b/app/schedule/page.tsx
+index 1bedf90..cf43ebc 100644
+--- a/app/schedule/page.tsx
++++ b/app/schedule/page.tsx
+@@ -1,7 +1,9 @@
+ "use client";
+ 
++import Link from "next/link";
+ import { useRouter } from "next/navigation";
+ import { useState, useEffect } from "react";
++import type { User } from "@supabase/supabase-js";
+ import { getSupabaseClient } from "../../lib/supabaseClient";
+ 
+ type EventType = "Lecture" | "Assignment" | "Study";
+@@ -35,11 +37,17 @@ const daysOfWeek = [
+   "Sunday",
+ ];
+ 
++const eventColors: Record<EventType, string> = {
++  Lecture: "bg-blue-100 text-blue-800 border-blue-200",
++  Assignment: "bg-amber-100 text-amber-800 border-amber-200",
++  Study: "bg-emerald-100 text-emerald-800 border-emerald-200",
++};
++
+ export default function SchedulePage() {
+-  const router = useRouter(); // ✅ now actually used (prevents lint error)
++  const router = useRouter();
+   const supabase = getSupabaseClient();
+ 
+-  const [user, setUser] = useState<any>(null);
++  const [user, setUser] = useState<User | null>(null);
+   const [isPremium, setIsPremium] = useState(false);
+   const [events, setEvents] = useState<Event[]>([]);
+   const [loading, setLoading] = useState(true);
+@@ -56,13 +64,13 @@ export default function SchedulePage() {
+ 
+   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+   const [aiPreviewEvents, setAiPreviewEvents] = useState<Event[] | null>(null);
+-  const [highlightedSessions, setHighlightedSessions] = useState<Record<string, number[]>>(
+-    {}
+-  );
++  const [highlightedSessions, setHighlightedSessions] = useState<Record<string, number[]>>({});
+ 
+   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
++  const [aiMode, setAiMode] = useState<"balanced" | "deep_focus" | "light_week">("balanced");
+ 
+   const getAccessTokenOrThrow = async () => {
++    if (!supabase) throw new Error("App is not configured. Missing Supabase environment variables.");
+     const { data, error } = await supabase.auth.getSession();
+     if (error) throw new Error("Failed to read session. Please log in again.");
+     const token = data?.session?.access_token;
+@@ -70,8 +78,12 @@ export default function SchedulePage() {
+     return token;
+   };
+ 
+-  /* ----------------------- Fetch user + premium ----------------------- */
+   useEffect(() => {
++    if (!supabase) {
++      setLoading(false);
++      return;
++    }
++
+     const init = async () => {
+       try {
+         const { data: userData, error: userErr } = await supabase.auth.getUser();
+@@ -82,8 +94,6 @@ export default function SchedulePage() {
+           setIsPremium(false);
+           setAiUsageCount(0);
+           setLoading(false);
+-
+-          // ✅ Optional but useful: send them to your login page
+           router.push("/login");
+           return;
+         }
+@@ -101,10 +111,7 @@ export default function SchedulePage() {
+         if (!profile) {
+           const { error: upsertErr } = await supabase
+             .from("profiles")
+-            .upsert(
+-              [{ id: userData.user.id, is_premium: false, ai_usage_count: 0 }],
+-              { onConflict: "id" }
+-            );
++            .upsert([{ id: userData.user.id, is_premium: false, ai_usage_count: 0 }], { onConflict: "id" });
+ 
+           if (upsertErr) console.error("Profile create/upsert error:", upsertErr);
+ 
+@@ -124,15 +131,11 @@ export default function SchedulePage() {
+     init();
+   }, [supabase, router]);
+ 
+-  /* ----------------------- Fetch events ----------------------- */
+   useEffect(() => {
+     if (!user) return;
+ 
+     const fetchEvents = async () => {
+-      const { data, error } = await supabase
+-        .from("events")
+-        .select("*")
+-        .eq("user_id", user.id);
++      const { data, error } = await supabase.from("events").select("*").eq("user_id", user.id);
+ 
+       if (error) console.error("Fetch events error:", error);
+       setEvents((data as Event[]) || []);
+@@ -141,7 +144,6 @@ export default function SchedulePage() {
+     fetchEvents();
+   }, [user, supabase]);
+ 
+-  /* ----------------------- Add event ----------------------- */
+   const addEvent = async (newEvent?: Partial<Event>) => {
+     if (!user) return;
+ 
+@@ -149,11 +151,7 @@ export default function SchedulePage() {
+       ? { ...newEvent, user_id: user.id }
+       : { user_id: user.id, title, type, day, start_hour: startHour, duration };
+ 
+-    const { data, error } = await supabase
+-      .from("events")
+-      .insert([eventToAdd])
+-      .select()
+-      .single();
++    const { data, error } = await supabase.from("events").insert([eventToAdd]).select().single();
+ 
+     if (error) {
+       console.error("Insert event error:", error);
+@@ -164,7 +162,6 @@ export default function SchedulePage() {
+     if (!newEvent) setTitle("");
+   };
+ 
+-  /* ----------------------- Delete event ----------------------- */
+   const deleteEvent = async (id: number) => {
+     const { error } = await supabase.from("events").delete().eq("id", id);
+     if (error) {
+@@ -174,7 +171,6 @@ export default function SchedulePage() {
+     setEvents((prev) => prev.filter((e) => e.id !== id));
+   };
+ 
+-  /* ----------------------- AI Schedule ----------------------- */
+   const generateAISchedule = async () => {
+     if (!user) return;
+ 
+@@ -197,13 +193,13 @@ export default function SchedulePage() {
+           "Content-Type": "application/json",
+           Authorization: `Bearer ${token}`,
+         },
+-        body: JSON.stringify({ events }),
++        body: JSON.stringify({ events, mode: aiMode }),
+       });
+ 
+       const data = await res.json();
+       if (!res.ok || !data.events) throw new Error(data.error || "AI scheduling failed");
+ 
+-      const previewEvents: Event[] = (data.events || []).map((e: any, idx: number) => ({
++      const previewEvents: Event[] = (data.events || []).map((e: Omit<Event, "id" | "user_id">, idx: number) => ({
+         id: -1 * (idx + 1),
+         user_id: user.id,
+         title: e.title,
+@@ -229,22 +225,19 @@ export default function SchedulePage() {
+         const newCount = aiUsageCount + 1;
+         setAiUsageCount(newCount);
+ 
+-        const { error: usageErr } = await supabase
+-          .from("profiles")
+-          .update({ ai_usage_count: newCount })
+-          .eq("id", user.id);
++        const { error: usageErr } = await supabase.from("profiles").update({ ai_usage_count: newCount }).eq("id", user.id);
+ 
+         if (usageErr) console.error("AI usage update failed:", usageErr);
+       }
+-    } catch (err: any) {
++    } catch (err: unknown) {
+       console.error(err);
+-      alert(err?.message || "AI scheduling failed");
++      const message = err instanceof Error ? err.message : "AI scheduling failed";
++      alert(message);
+     } finally {
+       setLoadingAI(false);
+     }
+   };
+ 
+-  /* ----------------------- Apply AI Schedule ----------------------- */
+   const applyAISchedule = async () => {
+     if (!aiPreviewEvents || !user) return;
+ 
+@@ -268,7 +261,6 @@ export default function SchedulePage() {
+     setAiPreviewEvents(null);
+   };
+ 
+-  /* ----------------------- AI Suggest ----------------------- */
+   const generateAISuggestions = async () => {
+     if (!user) return;
+ 
+@@ -293,181 +285,210 @@ export default function SchedulePage() {
+         const newCount = aiUsageCount + 1;
+         setAiUsageCount(newCount);
+ 
+-        const { error: usageErr } = await supabase
+-          .from("profiles")
+-          .update({ ai_usage_count: newCount })
+-          .eq("id", user.id);
++        const { error: usageErr } = await supabase.from("profiles").update({ ai_usage_count: newCount }).eq("id", user.id);
+ 
+         if (usageErr) console.error("AI usage update failed:", usageErr);
+       }
+-    } catch (err: any) {
++    } catch (err: unknown) {
+       console.error(err);
+-      alert(err?.message || "Failed to generate AI suggestions");
++      const message = err instanceof Error ? err.message : "Failed to generate AI suggestions";
++      alert(message);
+     }
+   };
+ 
+-  /* ----------------------- UI ----------------------- */
++  if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
+   if (loading) return <p>Loading...</p>;
+-
+-  // (This will rarely show now because we redirect to /login)
+   if (!user) return <p>Please log in to view your schedule.</p>;
+ 
+   const displayedEvents = aiPreviewEvents ?? events;
++  const studyBlocks = displayedEvents.filter((e) => e.type === "Study").length;
++  const assignmentCount = displayedEvents.filter((e) => e.type === "Assignment").length;
+ 
+   return (
+-    <div className="min-h-screen bg-gray-50 p-6">
+-      <h1 className="text-3xl font-bold mb-6">📅 My Schedule</h1>
+-
+-      <div className="bg-white p-6 rounded-xl shadow mb-6">
+-        <h2 className="text-xl font-semibold mb-2">Add Event</h2>
+-        <p className="text-sm text-gray-600 mb-4">
+-          🤖 <strong>AI Schedule</strong> automatically rearranges your events to balance
+-          your week, add study sessions, and avoid overload.
+-        </p>
+-
+-        <div className="flex flex-wrap gap-3 items-center">
+-          <input
+-            className="border p-2 rounded"
+-            placeholder="Title"
+-            value={title}
+-            onChange={(e) => setTitle(e.target.value)}
+-          />
+-
+-          <select className="border p-2 rounded" value={type} onChange={(e) => setType(e.target.value as EventType)}>
+-            <option>Lecture</option>
+-            <option>Assignment</option>
+-            <option>Study</option>
+-          </select>
+-
+-          <select className="border p-2 rounded" value={day} onChange={(e) => setDay(e.target.value)}>
+-            {daysOfWeek.map((d) => (
+-              <option key={d}>{d}</option>
+-            ))}
+-          </select>
+-
+-          <input
+-            type="number"
+-            className="border p-2 rounded w-20"
+-            min={0}
+-            max={23}
+-            value={startHour}
+-            onChange={(e) => setStartHour(Number(e.target.value))}
+-          />
+-
+-          <input
+-            type="number"
+-            className="border p-2 rounded w-20"
+-            min={1}
+-            max={12}
+-            value={duration}
+-            onChange={(e) => setDuration(Number(e.target.value))}
+-          />
+-
+-          <button onClick={() => addEvent()} className="bg-blue-600 text-white px-4 py-2 rounded">
+-            Add
+-          </button>
+-
+-          <button
+-            onClick={generateAISchedule}
+-            className={`px-4 py-2 rounded text-white ${
+-              isPremium || aiUsageCount < FREE_LIMIT ? "bg-green-600" : "bg-gray-400 cursor-not-allowed"
+-            }`}
+-          >
+-            {loadingAI
+-              ? "Generating..."
+-              : isPremium
+-              ? "Generate AI Schedule"
+-              : `Generate AI Schedule (${Math.max(0, FREE_LIMIT - aiUsageCount)} free uses left)`}
+-          </button>
+-
+-          <button
+-            onClick={generateAISuggestions}
+-            className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 transition"
+-          >
+-            AI Suggest
+-          </button>
+-        </div>
+-
+-        {!isPremium && (
+-          <p className="text-sm text-gray-500 mt-3">
+-            Free users get {FREE_LIMIT} AI optimizations. Premium = unlimited.
++    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-6 md:p-8">
++      <div className="max-w-7xl mx-auto space-y-6">
++        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
++          <h1 className="text-3xl font-bold">📅 Week Planner</h1>
++          <p className="text-slate-300 mt-2 max-w-3xl">
++            Stay in control with an AI-optimized weekly plan. Add your classes and tasks, then let WeekWise build better study momentum.
+           </p>
+-        )}
+-      </div>
++          <div className="mt-4 flex flex-wrap gap-3 text-sm">
++            <span className="bg-white/10 px-3 py-1 rounded-full">{events.length} total events</span>
++            <span className="bg-white/10 px-3 py-1 rounded-full">{studyBlocks} study blocks</span>
++            <span className="bg-white/10 px-3 py-1 rounded-full">{assignmentCount} assignments</span>
++            <span className="bg-white/10 px-3 py-1 rounded-full">{isPremium ? "Premium AI: Unlimited" : `Free AI left: ${Math.max(0, FREE_LIMIT - aiUsageCount)}`}</span>
++          </div>
++
++          <div className="mt-4 flex flex-wrap gap-2 text-sm">
++            <Link href="/fitness" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">🏋️ Fitness</Link>
++            <Link href="/momentum" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">⚡ Momentum</Link>
++            <Link href="/profile" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">👤 Profile</Link>
++          </div>
++        </section>
++
++        <section className="bg-white p-6 rounded-2xl border border-indigo-100 shadow">
++          <h2 className="text-xl font-semibold mb-1">Add Event</h2>
++          <p className="text-sm text-gray-600 mb-4">Add classes/assignments, then generate an optimized week with AI.</p>
++
++          <div className="mb-4">
++            <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">AI planning mode</p>
++            <div className="flex flex-wrap gap-2">
++              {[
++                { key: "balanced", label: "Balanced" },
++                { key: "deep_focus", label: "Deep Focus" },
++                { key: "light_week", label: "Light Week" },
++              ].map((m) => (
++                <button
++                  key={m.key}
++                  type="button"
++                  onClick={() => setAiMode(m.key as "balanced" | "deep_focus" | "light_week")}
++                  className={`px-3 py-1.5 rounded-full text-sm border transition ${
++                    aiMode === m.key
++                      ? "bg-slate-900 text-white border-slate-900"
++                      : "bg-white text-slate-700 border-slate-300 hover:border-slate-500"
++                  }`}
++                >
++                  {m.label}
++                </button>
++              ))}
++            </div>
++          </div>
+ 
+-      {aiPreviewEvents && (
+-        <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl mb-6">
+-          <h3 className="font-semibold text-purple-800 mb-2">🤖 AI Schedule Preview</h3>
+-          {aiExplanation && (
+-            <p className="text-sm text-purple-700 whitespace-pre-line mb-3">{aiExplanation}</p>
+-          )}
++          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
++            <label className="md:col-span-2 text-sm">
++              Title
++              <input className="mt-1 w-full border p-2 rounded-lg" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
++            </label>
++
++            <label className="text-sm">
++              Type
++              <select className="mt-1 w-full border p-2 rounded-lg" value={type} onChange={(e) => setType(e.target.value as EventType)}>
++                <option>Lecture</option>
++                <option>Assignment</option>
++                <option>Study</option>
++              </select>
++            </label>
++
++            <label className="text-sm">
++              Day
++              <select className="mt-1 w-full border p-2 rounded-lg" value={day} onChange={(e) => setDay(e.target.value)}>
++                {daysOfWeek.map((d) => (
++                  <option key={d}>{d}</option>
++                ))}
++              </select>
++            </label>
++
++            <label className="text-sm">
++              Start hour
++              <input type="number" className="mt-1 w-full border p-2 rounded-lg" min={0} max={23} value={startHour} onChange={(e) => setStartHour(Number(e.target.value))} />
++            </label>
++
++            <label className="text-sm">
++              Duration (h)
++              <input type="number" className="mt-1 w-full border p-2 rounded-lg" min={1} max={12} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
++            </label>
++          </div>
++
++          <p className="text-xs text-gray-500 mt-1">
++            {aiMode === "balanced" && "Balanced: evenly distributes work and study blocks."}
++            {aiMode === "deep_focus" && "Deep Focus: prioritizes longer, uninterrupted study sessions."}
++            {aiMode === "light_week" && "Light Week: reduces load density and protects breathing room."}
++          </p>
+ 
+-          <div className="flex gap-3">
+-            <button onClick={applyAISchedule} className="bg-green-600 text-white px-4 py-2 rounded">
+-              Apply Schedule
++          <div className="flex flex-wrap gap-3 mt-4">
++            <button onClick={() => addEvent()} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
++              Add Event
+             </button>
+-            <button onClick={generateAISchedule} className="bg-yellow-500 text-white px-4 py-2 rounded">
+-              Regenerate
++
++            <button
++              onClick={generateAISchedule}
++              className={`px-4 py-2 rounded-lg text-white transition ${
++                isPremium || aiUsageCount < FREE_LIMIT ? "bg-emerald-600 hover:bg-emerald-700" : "bg-gray-400 cursor-not-allowed"
++              }`}
++            >
++              {loadingAI ? "Generating..." : "Generate AI Schedule"}
+             </button>
+-            <button onClick={() => setAiPreviewEvents(null)} className="bg-gray-400 text-white px-4 py-2 rounded">
+-              Cancel
++
++            <button onClick={generateAISuggestions} className="px-4 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition">
++              AI Suggestions
+             </button>
+           </div>
+-        </div>
+-      )}
+-
+-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+-        {daysOfWeek.map((d) => (
+-          <div key={d} className="bg-white p-4 rounded-xl shadow min-h-[150px]">
+-            <h3 className="font-bold mb-2">{d}</h3>
+-
+-            {displayedEvents
+-              .filter((e) => e.day === d)
+-              .sort((a, b) => a.start_hour - b.start_hour)
+-              .map((e) => {
+-                const isHighlighted = highlightedSessions[d]?.some(
+-                  (hour) => hour >= e.start_hour && hour < e.start_hour + e.duration
+-                );
+-
+-                const canDelete = !aiPreviewEvents;
+-
+-                return (
+-                  <div
+-                    key={e.id}
+-                    className={`mb-1 p-1 rounded flex justify-between items-center ${
+-                      isHighlighted
+-                        ? "bg-purple-200 border-purple-400 border"
+-                        : e.type === "Lecture"
+-                        ? "bg-blue-100"
+-                        : e.type === "Assignment"
+-                        ? "bg-yellow-100"
+-                        : "bg-green-100"
+-                    }`}
+-                  >
+-                    <div>
+-                      <strong>{e.start_hour}:00</strong> {e.title}
+-                    </div>
++        </section>
++
++        {aiPreviewEvents && (
++          <section className="bg-violet-50 border border-violet-200 p-5 rounded-2xl">
++            <h3 className="font-semibold text-violet-900 mb-2">🤖 AI Schedule Preview</h3>
++            {aiExplanation && <p className="text-sm text-violet-800 whitespace-pre-line mb-3">{aiExplanation}</p>}
++
++            <div className="flex gap-3">
++              <button onClick={applyAISchedule} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700">
++                Apply Schedule
++              </button>
++              <button onClick={generateAISchedule} className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600">
++                Regenerate
++              </button>
++              <button onClick={() => setAiPreviewEvents(null)} className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
++                Cancel
++              </button>
++            </div>
++          </section>
++        )}
+ 
+-                    <button
+-                      onClick={() => {
+-                        if (!canDelete) return;
+-                        deleteEvent(e.id);
+-                      }}
+-                      className={`text-red-600 font-bold px-2 ${canDelete ? "" : "opacity-40 cursor-not-allowed"}`}
++        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-4">
++          {daysOfWeek.map((d) => (
++            <div key={d} className="bg-white p-4 rounded-2xl border border-gray-100 shadow min-h-[220px] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
++              <h3 className="font-bold mb-3 text-slate-800">{d}</h3>
++
++              {(() => {
++                const dayEvents = displayedEvents
++                  .filter((e) => e.day === d)
++                  .sort((a, b) => a.start_hour - b.start_hour);
++
++                if (dayEvents.length === 0) {
++                  return <p className="text-xs text-slate-400 italic">No events yet. Add one or run AI.</p>;
++                }
++
++                return dayEvents.map((e) => {
++                  const isHighlighted = highlightedSessions[d]?.some(
++                    (hour) => hour >= e.start_hour && hour < e.start_hour + e.duration
++                  );
++
++                  const canDelete = !aiPreviewEvents;
++
++                  return (
++                    <div
++                      key={e.id}
++                      className={`mb-2 p-2 rounded-lg border flex justify-between items-start gap-2 transition-all duration-300 hover:scale-[1.01] ${
++                        isHighlighted ? "bg-violet-200 border-violet-400" : eventColors[e.type]
++                      }`}
+                     >
+-                      ✕
+-                    </button>
+-                  </div>
+-                );
+-              })}
+-          </div>
+-        ))}
++                      <div className="text-sm">
++                        <p className="font-semibold leading-tight">{e.title}</p>
++                        <p className="text-xs opacity-80">{e.start_hour}:00 • {e.duration}h</p>
++                      </div>
++
++                      <button
++                        onClick={() => {
++                          if (!canDelete) return;
++                          deleteEvent(e.id);
++                        }}
++                        className={`text-red-600 font-bold px-2 ${canDelete ? "" : "opacity-40 cursor-not-allowed"}`}
++                      >
++                        ✕
++                      </button>
++                    </div>
++                  );
++                });
++              })()}
++            </div>
++          ))}
++        </section>
+       </div>
+ 
+       {aiSuggestions.length > 0 && (
+-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative">
+-            <h3 className="font-bold text-xl mb-4 text-purple-800">🤖 AI Suggestions</h3>
++        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
++          <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6 relative border border-violet-100">
++            <h3 className="font-bold text-xl mb-4 text-violet-800">🤖 AI Suggestions</h3>
+ 
+             <button
+               className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 font-bold text-lg"
+@@ -476,11 +497,11 @@ export default function SchedulePage() {
+               ✕
+             </button>
+ 
+-            <ul className="space-y-3 max-h-96 overflow-y-auto">
++            <ul className="space-y-3 max-h-96 overflow-y-auto pr-1">
+               {aiSuggestions.map((s, idx) => (
+                 <li
+                   key={idx}
+-                  className="border rounded p-3 cursor-pointer hover:bg-purple-100 transition flex flex-col gap-1"
++                  className="border rounded-lg p-3 cursor-pointer hover:bg-violet-50 transition flex flex-col gap-1"
+                   onClick={() => {
+                     addEvent(s);
+                     setAiSuggestions([]);
+@@ -502,31 +523,3 @@ export default function SchedulePage() {
+     </div>
+   );
+ }
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+diff --git a/app/test/page.tsx b/app/test/page.tsx
+index 247cd71..d2a6123 100644
+--- a/app/test/page.tsx
++++ b/app/test/page.tsx
+@@ -1,55 +1,78 @@
+ "use client";
+ 
+ import { useEffect, useState } from "react";
+-import { supabase } from "../../lib/supabaseClient";
++import { getSupabaseClient } from "../../lib/supabaseClient";
++import type { User } from "@supabase/supabase-js";
++import type { Workout } from "@/lib/types";
+ 
+ export default function TestPage() {
+-  const [workouts, setWorkouts] = useState<any[]>([]);
++  const supabase = getSupabaseClient();
++  const [workouts, setWorkouts] = useState<Workout[]>([]);
+   const [loading, setLoading] = useState(true);
+-  const [user, setUser] = useState<any>(null);
++  const [user, setUser] = useState<User | null>(null);
+ 
+   useEffect(() => {
+-    const getSession = async () => {
+-      const { data: { session }, error } = await supabase.auth.getSession();
++    if (!supabase) return;
++
++    let mounted = true;
++
++    const init = async () => {
++      const {
++        data: { session },
++        error,
++      } = await supabase.auth.getSession();
++
+       if (error) console.error("Session error:", error);
+-      setUser(session?.user ?? null);
++      if (mounted) {
++        setUser(session?.user ?? null);
++      }
+     };
+ 
+-    getSession();
++    init();
+ 
+-    // Subscribe to changes (login/logout)
+     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+       setUser(session?.user ?? null);
+     });
+ 
+     return () => {
++      mounted = false;
+       listener.subscription.unsubscribe();
+     };
+-  }, []);
++  }, [supabase]);
+ 
+   useEffect(() => {
+-    if (!user) {
+-      setLoading(false);
+-      return;
+-    }
++    let active = true;
+ 
+     const fetchWorkouts = async () => {
++      if (!user) {
++        if (active) {
++          setWorkouts([]);
++          setLoading(false);
++        }
++        return;
++      }
++
+       const { data, error } = await supabase
+         .from("workouts")
+         .select("*")
+         .eq("user_id", user.id);
+ 
+-      console.log("Raw data from Supabase:", data);
+-      console.log("Fetch error:", error);
+-
+       if (error) console.error(error);
+-      setWorkouts(data || []);
+-      setLoading(false);
++
++      if (active) {
++        setWorkouts((data as Workout[]) || []);
++        setLoading(false);
++      }
+     };
+ 
+     fetchWorkouts();
+-  }, [user]);
+ 
++    return () => {
++      active = false;
++    };
++  }, [user, supabase]);
++
++  if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
+   if (loading) return <p>Loading...</p>;
+   if (!user) return <p>Please log in to see workouts.</p>;
+ 
+@@ -66,5 +89,3 @@ export default function TestPage() {
+     </div>
+   );
+ }
+-
+-
+diff --git a/lib/supabaseClient.ts b/lib/supabaseClient.ts
+index ec4bb03..47c10f7 100644
+--- a/lib/supabaseClient.ts
++++ b/lib/supabaseClient.ts
+@@ -1,30 +1,19 @@
+-// lib/supabaseClient.ts
+ import { createClient, SupabaseClient } from "@supabase/supabase-js";
+ 
+ let _supabase: SupabaseClient | null = null;
+ 
+-export function getSupabaseClient() {
++export function getSupabaseClient(): SupabaseClient | null {
+   if (_supabase) return _supabase;
+ 
+   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+ 
+-  // ✅ Never throw at module evaluation/build time
+-  // Only create client when env vars exist (client runtime).
+   if (!supabaseUrl || !supabaseAnonKey) {
+-    // During build/SSR import, env might not be present in some contexts.
+-    // Return a typed placeholder; actual usage should happen in the browser.
+-    return null as unknown as SupabaseClient;
++    return null;
+   }
+ 
+   _supabase = createClient(supabaseUrl, supabaseAnonKey);
+   return _supabase;
+ }
+ 
+-// ✅ Backwards compatibility (some of your pages still do `import { supabase } ...`)
+-export const supabase =
+-  typeof window !== "undefined"
+-    ? getSupabaseClient()
+-    : (null as unknown as SupabaseClient);
+-
+-
++export const supabase = typeof window !== "undefined" ? getSupabaseClient() : null;

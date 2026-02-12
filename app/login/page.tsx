@@ -14,6 +14,11 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleLogin = async () => {
+    if (!supabase) {
+      setErrorMsg("App is not configured. Missing Supabase environment variables.");
+      return;
+    }
+
     setLoading(true);
     setErrorMsg("");
 

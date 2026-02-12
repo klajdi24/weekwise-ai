@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import Mascot from "../components/mascot";
 
 type NotesMode = "summarize" | "quiz";
 
@@ -81,6 +82,8 @@ export default function Notes() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-indigo-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
+        <Mascot mood={result ? "celebrate" : "happy"} message="Drop your lecture notes and I’ll turn them into revision fuel." />
+
         <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
           <h1 className="text-3xl font-bold">📝 Lecture Notes Studio</h1>
           <p className="text-slate-300 mt-2">Turn raw class notes into summary bullets, key terms, and quiz-ready revision prompts.</p>

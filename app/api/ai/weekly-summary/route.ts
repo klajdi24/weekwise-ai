@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+interface WeeklyEvent {
+  day: string;
+  start_hour: number;
+  duration: number;
+  title: string;
+  type: string;
+}
+
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -13,17 +21,15 @@ export async function POST(req: Request) {
 
     const openai = new OpenAI({ apiKey });
 
-    const { events } = await req.json();
+    const body = (await req.json()) as { events?: WeeklyEvent[] };
+    const events = Array.isArray(body.events) ? body.events : [];
 
     const prompt = `
 You are a productivity coach.
 
 Here is a user's weekly schedule:
-${(events || [])
-  .map(
-    (e: any) =>
-      `${e.day} at ${e.start_hour}:00 for ${e.duration}h - ${e.title} (${e.type})`
-  )
+${events
+  .map((e) => `${e.day} at ${e.start_hour}:00 for ${e.duration}h - ${e.title} (${e.type})`)
   .join("\n")}
 
 Give:
@@ -41,11 +47,8 @@ Keep it concise and friendly.
     return NextResponse.json({
       summary: completion.choices?.[0]?.message?.content || "",
     });
-  } catch (error: any) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error?.message || "AI summary failed" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "AI summary failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

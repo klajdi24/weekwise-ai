@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
-
-const FREE_LIMIT = 3;
+import {
+  FREE_DAILY_AI_LIMIT,
+  consumeAiAction,
+  getAiUsageToday,
+  getSubscriptionSnapshot,
+  trackEvent,
+} from "@/lib/subscription";
 
 type EssayTone = "academic" | "clear" | "persuasive";
 type EssayType = "outline" | "draft" | "improve";
@@ -38,21 +43,15 @@ export async function POST(req: NextRequest) {
     if (userErr || !userRes?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const userId = userRes.user.id;
+    const [subscription, used] = await Promise.all([
+      getSubscriptionSnapshot(supabase, userId),
+      getAiUsageToday(supabase, userId),
+    ]);
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("is_premium, ai_usage_count")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 500 });
-
-    const isPremium = !!profile?.is_premium;
-    const currentUsage = Number(profile?.ai_usage_count ?? 0);
-
-    if (!isPremium && currentUsage >= FREE_LIMIT) {
+    if (!subscription.isUnlimitedAi && used >= FREE_DAILY_AI_LIMIT) {
+      await trackEvent(supabase, userId, "paywall_viewed", { feature: "ai_essay", trigger: "daily_limit" });
       return NextResponse.json(
-        { error: `Free AI limit reached (${FREE_LIMIT}). Upgrade to Premium.`, code: "FREE_LIMIT_REACHED" },
+        { error: `Daily free AI limit reached (${FREE_DAILY_AI_LIMIT}/day). Start your 7-day Pro trial.`, code: "FREE_LIMIT_REACHED" },
         { status: 403 }
       );
     }
@@ -142,12 +141,10 @@ export async function POST(req: NextRequest) {
     const output = typeof parsed.output === "string" ? parsed.output.trim() : "";
     if (!output) return NextResponse.json({ error: "Essay generation failed" }, { status: 500 });
 
-    if (!isPremium) {
-      await supabase
-        .from("profiles")
-        .update({ ai_usage_count: currentUsage + 1 })
-        .eq("id", userId);
-    }
+    await consumeAiAction(supabase, userId, "essay");
+    await trackEvent(supabase, userId, "summary_generated", { mode: essayType, source: "essay" });
+
+    const remaining = subscription.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - (used + 1));
 
     return NextResponse.json({
       title: typeof parsed.title === "string" ? parsed.title : "Essay Assistant Output",
@@ -156,7 +153,8 @@ export async function POST(req: NextRequest) {
       checklist: toStringArray(parsed.checklist),
       referencesNeeded: toStringArray(parsed.referencesNeeded),
       xpReward: essayType === "draft" ? 24 : essayType === "improve" ? 20 : 16,
-      remaining: isPremium ? null : Math.max(0, FREE_LIMIT - (currentUsage + 1)),
+      remaining,
+      isUnlimitedAi: subscription.isUnlimitedAi,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Essay generation failed";

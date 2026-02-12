@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
+import {
+  FREE_DAILY_AI_LIMIT,
+  consumeAiAction,
+  getAiUsageToday,
+  getSubscriptionSnapshot,
+  trackEvent,
+} from "@/lib/subscription";
 
 interface PdfParseResult {
   text?: string;
@@ -11,7 +18,6 @@ type PdfParseFn = (buffer: Buffer) => Promise<PdfParseResult>;
 type SummaryMode = "quick" | "exam" | "deep";
 type SummaryFormat = "paragraph" | "bullets" | "flashcards";
 
-const FREE_LIMIT = 3;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function getBearerToken(req: NextRequest) {
@@ -55,24 +61,16 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = userRes.user.id;
+    const [subscription, used] = await Promise.all([
+      getSubscriptionSnapshot(supabase, userId),
+      getAiUsageToday(supabase, userId),
+    ]);
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("is_premium, ai_usage_count")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileErr) {
-      return NextResponse.json({ error: profileErr.message }, { status: 500 });
-    }
-
-    const isPremium = !!profile?.is_premium;
-    const currentUsage = Number(profile?.ai_usage_count ?? 0);
-
-    if (!isPremium && currentUsage >= FREE_LIMIT) {
+    if (!subscription.isUnlimitedAi && used >= FREE_DAILY_AI_LIMIT) {
+      await trackEvent(supabase, userId, "paywall_viewed", { feature: "ai_summarize", trigger: "daily_limit" });
       return NextResponse.json(
         {
-          error: `Free AI limit reached (${FREE_LIMIT}). Upgrade to Premium for unlimited summaries.`,
+          error: `Daily free AI limit reached (${FREE_DAILY_AI_LIMIT}/day). Start your 7-day Pro trial for unlimited summaries.`,
           code: "FREE_LIMIT_REACHED",
         },
         { status: 403 }
@@ -182,14 +180,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Summary generation failed." }, { status: 500 });
     }
 
-    if (!isPremium) {
-      await supabase
-        .from("profiles")
-        .update({ ai_usage_count: currentUsage + 1 })
-        .eq("id", userId);
-    }
+    await consumeAiAction(supabase, userId, "summarize");
+    await trackEvent(supabase, userId, "summary_generated", { mode, format, source: "pdf" });
 
     const xpReward = estimateXp(mode, format);
+    const remaining = subscription.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - (used + 1));
 
     return NextResponse.json({
       summary,
@@ -199,8 +194,8 @@ export async function POST(req: NextRequest) {
       mode,
       format,
       xpReward,
-      isPremium,
-      remaining: isPremium ? null : Math.max(0, FREE_LIMIT - (currentUsage + 1)),
+      remaining,
+      isUnlimitedAi: subscription.isUnlimitedAi,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to summarize PDF";

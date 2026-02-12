@@ -1,55 +1,78 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import type { User } from "@supabase/supabase-js";
+import type { Workout } from "@/lib/types";
 
 export default function TestPage() {
-  const [workouts, setWorkouts] = useState<any[]>([]);
+  const supabase = getSupabaseClient();
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+    if (!supabase) return;
+
+    let mounted = true;
+
+    const init = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+
       if (error) console.error("Session error:", error);
-      setUser(session?.user ?? null);
+      if (mounted) {
+        setUser(session?.user ?? null);
+      }
     };
 
-    getSession();
+    init();
 
-    // Subscribe to changes (login/logout)
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
 
     return () => {
+      mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    let active = true;
 
     const fetchWorkouts = async () => {
+      if (!user) {
+        if (active) {
+          setWorkouts([]);
+          setLoading(false);
+        }
+        return;
+      }
+
       const { data, error } = await supabase
         .from("workouts")
         .select("*")
         .eq("user_id", user.id);
 
-      console.log("Raw data from Supabase:", data);
-      console.log("Fetch error:", error);
-
       if (error) console.error(error);
-      setWorkouts(data || []);
-      setLoading(false);
+
+      if (active) {
+        setWorkouts((data as Workout[]) || []);
+        setLoading(false);
+      }
     };
 
     fetchWorkouts();
-  }, [user]);
 
+    return () => {
+      active = false;
+    };
+  }, [user, supabase]);
+
+  if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
   if (loading) return <p>Loading...</p>;
   if (!user) return <p>Please log in to see workouts.</p>;
 
@@ -66,5 +89,3 @@ export default function TestPage() {
     </div>
   );
 }
-
-

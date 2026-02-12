@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import Mascot from "../components/mascot";
 
 type SummaryMode = "quick" | "exam" | "deep";
 type SummaryFormat = "bullets" | "paragraph" | "flashcards";
@@ -14,8 +15,11 @@ interface SummarizeResponse {
   quizQuestions: string[];
   xpReward: number;
   remaining: number | null;
+  isUnlimitedAi?: boolean;
   error?: string;
 }
+
+type UiState = "idle" | "loading" | "success" | "error";
 
 export default function Summarize() {
   const supabase = getSupabaseClient();
@@ -32,7 +36,7 @@ export default function Summarize() {
   const [xpReward, setXpReward] = useState<number>(0);
   const [remaining, setRemaining] = useState<number | null>(null);
 
-  const [loading, setLoading] = useState(false);
+  const [uiState, setUiState] = useState<UiState>("idle");
   const [error, setError] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
@@ -42,25 +46,34 @@ export default function Summarize() {
     return Math.max(1, Math.round(words / 180));
   }, [summary]);
 
+  const modeHint = useMemo(() => {
+    if (mode === "exam") return "Exam prep mode prioritizes likely questions and memory cues.";
+    if (mode === "deep") return "Deep mode gives conceptual links and pitfalls.";
+    return "Quick mode is best for fast daily revision.";
+  }, [mode]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
       setFile(e.target.files[0]);
       setError("");
+      if (uiState === "error") setUiState("idle");
     }
   };
 
   const handleSubmit = async () => {
     if (!file) {
       setError("Upload a PDF first.");
+      setUiState("error");
       return;
     }
 
     if (!supabase) {
       setError("App is not configured. Missing Supabase environment variables.");
+      setUiState("error");
       return;
     }
 
-    setLoading(true);
+    setUiState("loading");
     setError("");
     setSummary("");
     setKeyPoints([]);
@@ -102,11 +115,11 @@ export default function Summarize() {
       setQuizQuestions(data.quizQuestions || []);
       setXpReward(data.xpReward || 0);
       setRemaining(data.remaining ?? null);
+      setUiState("success");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong";
       setError(message);
-    } finally {
-      setLoading(false);
+      setUiState("error");
     }
   };
 
@@ -133,29 +146,41 @@ export default function Summarize() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
+        <Mascot
+          mood={uiState === "success" ? "celebrate" : uiState === "loading" ? "focus" : "happy"}
+          message={
+            uiState === "success"
+              ? "Great run. Turn this into one short revision block today."
+              : "Upload one lecture PDF — we’ll convert it into a study pack."
+          }
+        />
+
         <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
           <h1 className="text-3xl font-bold">📄 Smart PDF Summarizer</h1>
           <p className="text-slate-300 mt-2">
-            Turn lecture slides into study-ready summaries, key points, action tasks, and quiz prompts.
+            Turn lecture slides into key concepts, actions, and quiz prompts in minutes.
           </p>
         </section>
 
         <section className="bg-white rounded-2xl border border-violet-100 shadow p-6 space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Upload PDF</label>
+            <label htmlFor="pdf-upload" className="block text-sm font-semibold text-slate-700 mb-2">Upload PDF</label>
             <input
+              id="pdf-upload"
               type="file"
               accept=".pdf"
               onChange={handleFileChange}
               className="border p-2 rounded-lg w-full"
+              aria-label="Upload lecture PDF"
             />
             {file && <p className="text-xs text-slate-500 mt-2">Selected: {file.name}</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Summary mode</label>
+              <label htmlFor="summary-mode" className="block text-sm font-semibold text-slate-700 mb-2">Summary mode</label>
               <select
+                id="summary-mode"
                 value={mode}
                 onChange={(e) => setMode(e.target.value as SummaryMode)}
                 className="w-full border rounded-lg p-2"
@@ -164,11 +189,13 @@ export default function Summarize() {
                 <option value="exam">Exam prep</option>
                 <option value="deep">Deep understanding</option>
               </select>
+              <p className="text-xs text-slate-500 mt-1">{modeHint}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Output format</label>
+              <label htmlFor="summary-format" className="block text-sm font-semibold text-slate-700 mb-2">Output format</label>
               <select
+                id="summary-format"
                 value={format}
                 onChange={(e) => setFormat(e.target.value as SummaryFormat)}
                 className="w-full border rounded-lg p-2"
@@ -180,17 +207,41 @@ export default function Summarize() {
             </div>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 transition disabled:opacity-60"
-          >
-            {loading ? "Summarizing..." : "Generate Study Summary"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={uiState === "loading"}
+              className="btn-primary disabled:opacity-60"
+            >
+              {uiState === "loading" ? "Summarizing..." : "Generate Study Summary"}
+            </button>
 
-          {remaining !== null && <p className="text-xs text-slate-500">Free AI uses remaining: {remaining}</p>}
-          {error && <p className="text-red-600">{error}</p>}
+            {uiState === "error" && file && (
+              <button onClick={handleSubmit} className="btn-secondary" aria-label="Retry summarize request">
+                Retry
+              </button>
+            )}
+          </div>
+
+          {remaining !== null && <p className="text-xs text-slate-500">Free AI uses remaining today: {remaining}</p>}
+
+          {uiState === "error" && <p className="text-red-600" role="alert">{error}</p>}
         </section>
+
+        {uiState === "idle" && !summary && (
+          <section className="card-soft p-6 text-center">
+            <p className="text-slate-600">No summary yet. Upload your lecture PDF and generate your first study pack.</p>
+          </section>
+        )}
+
+        {uiState === "loading" && (
+          <section className="bg-white rounded-2xl shadow border border-violet-100 p-6 space-y-4">
+            <div className="h-6 w-44 bg-slate-100 rounded animate-pulse" />
+            <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+            <div className="h-4 w-11/12 bg-slate-100 rounded animate-pulse" />
+            <div className="h-4 w-10/12 bg-slate-100 rounded animate-pulse" />
+          </section>
+        )}
 
         {summary && (
           <section className="bg-white rounded-2xl shadow border border-violet-100 p-6 space-y-5">
@@ -215,7 +266,7 @@ export default function Summarize() {
 
             {keyPoints.length > 0 && (
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Key Points</h3>
+                <h3 className="font-semibold text-slate-900 mb-2">Key Concepts</h3>
                 <ul className="list-disc pl-5 space-y-1 text-slate-700">
                   {keyPoints.map((point, index) => (
                     <li key={`${point}-${index}`}>{point}</li>
@@ -226,7 +277,7 @@ export default function Summarize() {
 
             {actionItems.length > 0 && (
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Action Items</h3>
+                <h3 className="font-semibold text-slate-900 mb-2">Revision Checklist</h3>
                 <ul className="list-disc pl-5 space-y-1 text-slate-700">
                   {actionItems.map((item, index) => (
                     <li key={`${item}-${index}`}>{item}</li>
@@ -237,7 +288,7 @@ export default function Summarize() {
 
             {quizQuestions.length > 0 && (
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Quiz Yourself</h3>
+                <h3 className="font-semibold text-slate-900 mb-2">Exam-style Quick Questions</h3>
                 <ul className="list-decimal pl-5 space-y-1 text-slate-700">
                   {quizQuestions.map((q, index) => (
                     <li key={`${q}-${index}`}>{q}</li>

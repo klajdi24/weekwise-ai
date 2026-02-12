@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
-
-const FREE_LIMIT = 3;
+import { FREE_DAILY_AI_LIMIT, getAiUsageToday, getSubscriptionSnapshot } from "@/lib/subscription";
 
 function getBearerToken(req: NextRequest) {
   const auth = req.headers.get("authorization") || "";
   const match = auth.match(/^Bearer\s+(.+)$/i);
   return match?.[1] || null;
+}
+
+function planLabel(plan: "free" | "pro_trial" | "pro") {
+  if (plan === "pro_trial") return "Pro Trial";
+  if (plan === "pro") return "Pro";
+  return "Free";
 }
 
 export async function GET(req: NextRequest) {
@@ -21,28 +26,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("is_premium, ai_usage_count")
-      .eq("id", userRes.user.id)
-      .maybeSingle();
+    const userId = userRes.user.id;
 
-    if (profileErr) {
-      return NextResponse.json({ error: profileErr.message }, { status: 500 });
-    }
+    const [snapshot, used] = await Promise.all([
+      getSubscriptionSnapshot(supabase, userId),
+      getAiUsageToday(supabase, userId),
+    ]);
 
-    const isPremium = !!profile?.is_premium;
-    const used = Number(profile?.ai_usage_count ?? 0);
-    const remaining = Math.max(0, FREE_LIMIT - used);
+    const remaining = snapshot.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - used);
 
     return NextResponse.json({
-      isPremium,
-      freeLimit: FREE_LIMIT,
+      isPremium: snapshot.plan === "pro" || snapshot.plan === "pro_trial",
+      freeLimit: FREE_DAILY_AI_LIMIT,
       used,
       remaining,
-      canUseAi: isPremium || remaining > 0,
-      planLabel: isPremium ? "Premium" : "Free",
-      cta: isPremium ? "Manage subscription" : "Upgrade for unlimited AI features",
+      canUseAi: snapshot.isUnlimitedAi || (remaining ?? 0) > 0,
+      plan: snapshot.plan,
+      planLabel: planLabel(snapshot.plan),
+      trialEndsAt: snapshot.trialEndsAt,
+      trialDaysLeft: snapshot.trialDaysLeft,
+      cta:
+        snapshot.plan === "free"
+          ? "Start 7-day free trial"
+          : snapshot.plan === "pro_trial"
+          ? "Manage trial"
+          : "Manage subscription",
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load subscription status";

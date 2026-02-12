@@ -1,16 +1,50 @@
-// app/api/ai/suggest/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
+import {
+  FREE_DAILY_AI_LIMIT,
+  consumeAiAction,
+  getAiUsageToday,
+  getSubscriptionSnapshot,
+  trackEvent,
+} from "@/lib/subscription";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const EVENT_TYPES = ["Lecture", "Assignment", "Study"] as const;
 
-const FREE_LIMIT = 3;
+type EventType = (typeof EVENT_TYPES)[number];
+type DayName = (typeof DAYS)[number];
+
+interface SuggestionPayload {
+  title: string;
+  type: EventType;
+  day: DayName;
+  start_hour: number;
+  duration: number;
+  description: string;
+}
 
 function getBearerToken(req: NextRequest) {
   const auth = req.headers.get("authorization") || "";
   const match = auth.match(/^Bearer\s+(.+)$/i);
   return match?.[1] || null;
+}
+
+function isSuggestionPayload(value: unknown): value is SuggestionPayload {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.title === "string" &&
+    EVENT_TYPES.includes(record.type as EventType) &&
+    DAYS.includes(record.day as DayName) &&
+    Number.isInteger(record.start_hour) &&
+    Number(record.start_hour) >= 0 &&
+    Number(record.start_hour) <= 23 &&
+    Number.isFinite(record.duration) &&
+    Number(record.duration) > 0 &&
+    typeof record.description === "string"
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -26,24 +60,17 @@ export async function POST(req: NextRequest) {
     if (userErr || !userRes?.user) {
       return NextResponse.json({ error: "Unauthorized: invalid session" }, { status: 401 });
     }
-    const user = userRes.user;
+    const userId = userRes.user.id;
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("is_premium, ai_usage_count")
-      .eq("id", user.id)
-      .single();
+    const [subscription, used] = await Promise.all([
+      getSubscriptionSnapshot(supabase, userId),
+      getAiUsageToday(supabase, userId),
+    ]);
 
-    if (profileErr) {
-      return NextResponse.json({ error: "Failed to load profile" }, { status: 500 });
-    }
-
-    const isPremium = !!profile?.is_premium;
-    const usage = Number(profile?.ai_usage_count ?? 0);
-
-    if (!isPremium && usage >= FREE_LIMIT) {
+    if (!subscription.isUnlimitedAi && used >= FREE_DAILY_AI_LIMIT) {
+      await trackEvent(supabase, userId, "paywall_viewed", { feature: "ai_suggestions", trigger: "daily_limit" });
       return NextResponse.json(
-        { error: "Free AI uses exhausted. Upgrade to Premium for unlimited suggestions." },
+        { error: "Daily free AI limit reached (5/day). Start your 7-day Pro trial for unlimited AI.", code: "FREE_LIMIT_REACHED" },
         { status: 402 }
       );
     }
@@ -57,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
     const openai = new OpenAI({ apiKey });
 
-    const { events } = await req.json();
+    const { events } = (await req.json()) as { events?: unknown[] };
     if (!Array.isArray(events)) {
       return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
     }
@@ -101,43 +128,25 @@ No markdown, no extra text.
       return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
     }
 
-    let parsed: any;
+    let parsed: { suggestions?: unknown };
     try {
-      parsed = JSON.parse(raw);
-    } catch (err) {
-      console.error("AI JSON parse error:", raw, err);
+      parsed = JSON.parse(raw) as { suggestions?: unknown };
+    } catch {
       return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
     }
 
     const cleanedSuggestions = Array.isArray(parsed.suggestions)
-      ? parsed.suggestions.filter(
-          (s: any) =>
-            typeof s.title === "string" &&
-            ["Lecture", "Assignment", "Study"].includes(s.type) &&
-            DAYS.includes(s.day) &&
-            Number.isInteger(s.start_hour) &&
-            s.start_hour >= 0 &&
-            s.start_hour <= 23 &&
-            Number.isFinite(s.duration) &&
-            s.duration > 0 &&
-            typeof s.description === "string"
-        )
+      ? parsed.suggestions.filter(isSuggestionPayload)
       : [];
 
-    // ✅ Increment usage after successful call (free users only)
-    if (!isPremium) {
-      await supabase
-        .from("profiles")
-        .update({ ai_usage_count: usage + 1 })
-        .eq("id", user.id);
-    }
+    await consumeAiAction(supabase, userId, "suggest");
+    await trackEvent(supabase, userId, "day_plan_generated", { suggestionsCount: cleanedSuggestions.length });
 
-    return NextResponse.json({ suggestions: cleanedSuggestions });
-  } catch (err: any) {
-    console.error("AI suggest error:", err);
-    return NextResponse.json({ error: err?.message || "Failed to generate AI suggestions" }, { status: 500 });
+    const remaining = subscription.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - (used + 1));
+
+    return NextResponse.json({ suggestions: cleanedSuggestions, remaining, isUnlimitedAi: subscription.isUnlimitedAi });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to generate AI suggestions";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-
-
