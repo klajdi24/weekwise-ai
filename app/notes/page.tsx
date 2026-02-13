@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 import Mascot from "../components/mascot";
 
 type NotesMode = "summarize" | "quiz";
@@ -68,8 +69,11 @@ export default function Notes() {
         }),
       });
 
-      const data = (await res.json()) as NotesResponse;
-      if (!res.ok) throw new Error(data.error || "Failed to generate notes");
+      const data = (await res.json()) as NotesResponse & AiClientErrorPayload;
+      if (!res.ok) {
+        const message = extractAiError(data, "Failed to generate notes");
+        throw new Error(isPlanLimitError(data) ? `${message} Upgrade in Pricing to continue.` : message);
+      }
       setResult(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to generate notes";
@@ -80,8 +84,8 @@ export default function Notes() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-indigo-100 p-6 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <main className="min-h-screen app-surface p-6 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-6 app-layer">
         <Mascot mood={result ? "celebrate" : "happy"} message="Drop your lecture notes and I’ll turn them into revision fuel." />
 
         <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
@@ -89,7 +93,7 @@ export default function Notes() {
           <p className="text-slate-300 mt-2">Turn raw class notes into summary bullets, key terms, and quiz-ready revision prompts.</p>
         </section>
 
-        <section className="bg-white rounded-2xl border border-cyan-100 shadow p-6 space-y-4">
+        <section className="card-bubbly rounded-2xl border border-cyan-100 shadow p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Module</label>
@@ -114,7 +118,7 @@ export default function Notes() {
           <button
             onClick={generateNotes}
             disabled={loading}
-            className="bg-cyan-600 text-white px-6 py-2 rounded-lg hover:bg-cyan-700 transition disabled:opacity-60"
+            className="bg-cyan-600 text-white px-6 py-2 rounded-lg hover:bg-cyan-700 transition disabled:opacity-60 hover:-translate-y-0.5"
           >
             {loading ? "Generating..." : mode === "quiz" ? "Generate Quiz Pack" : "Generate Study Notes"}
           </button>

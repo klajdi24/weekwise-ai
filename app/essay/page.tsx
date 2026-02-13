@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 
 type EssayTone = "academic" | "clear" | "persuasive";
 type EssayType = "outline" | "draft" | "improve";
@@ -74,8 +75,11 @@ export default function EssayPage() {
         }),
       });
 
-      const data = (await res.json()) as EssayResponse;
-      if (!res.ok) throw new Error(data.error || "Failed to generate essay output");
+      const data = (await res.json()) as EssayResponse & AiClientErrorPayload;
+      if (!res.ok) {
+        const message = extractAiError(data, "Failed to generate essay output");
+        throw new Error(isPlanLimitError(data) ? `${message} Upgrade in Pricing to continue.` : message);
+      }
       setResult(data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to generate essay output");

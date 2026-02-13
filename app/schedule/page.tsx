@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 import Mascot from "../components/mascot";
 
 type EventType = "Lecture" | "Assignment" | "Study";
@@ -34,7 +35,7 @@ interface SubscriptionStatus {
   isPremium: boolean;
   freeLimit: number;
   used: number;
-  remaining: number;
+  remaining: number | null;
   canUseAi: boolean;
   planLabel: string;
   cta: string;
@@ -87,6 +88,13 @@ export default function SchedulePage() {
 
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiMode, setAiMode] = useState<PlanMode>("balanced");
+  const [modeAnimation, setModeAnimation] = useState(false);
+
+  const modeTone: Record<PlanMode, string> = {
+    balanced: "from-indigo-500/20 via-violet-500/15 to-sky-500/20",
+    deep_focus: "from-emerald-500/25 via-cyan-500/20 to-blue-500/25",
+    light_week: "from-amber-400/25 via-rose-300/20 to-fuchsia-400/25",
+  };
 
   const getAccessTokenOrThrow = useCallback(async () => {
     if (!supabase) throw new Error("App is not configured. Missing Supabase environment variables.");
@@ -248,8 +256,11 @@ export default function SchedulePage() {
         body: JSON.stringify({ events, mode: aiMode }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.events) throw new Error(data.error || "AI scheduling failed");
+      const data = (await res.json()) as { events?: Event[]; explanation?: string } & AiClientErrorPayload;
+      if (!res.ok || !data.events) {
+        const message = extractAiError(data, "AI scheduling failed");
+        throw new Error(isPlanLimitError(data) ? `${message} Upgrade in Pricing to continue.` : message);
+      }
 
       const previewEvents: Event[] = (data.events || []).map((e: Omit<Event, "id" | "user_id">, idx: number) => ({
         id: -1 * (idx + 1),
@@ -334,8 +345,11 @@ export default function SchedulePage() {
         body: JSON.stringify({ events }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.suggestions) throw new Error(data.error || "AI suggestions failed");
+      const data = (await res.json()) as { suggestions?: AISuggestion[] } & AiClientErrorPayload;
+      if (!res.ok || !data.suggestions) {
+        const message = extractAiError(data, "AI suggestions failed");
+        throw new Error(isPlanLimitError(data) ? `${message} Upgrade in Pricing to continue.` : message);
+      }
 
       setAiSuggestions(data.suggestions);
       setStatusNote({ tone: "success", text: "Suggestions ready. Tap one to add it." });
@@ -358,6 +372,12 @@ export default function SchedulePage() {
     }
   };
 
+  const handleModeSelect = (mode: PlanMode) => {
+    setAiMode(mode);
+    setModeAnimation(true);
+    window.setTimeout(() => setModeAnimation(false), 420);
+  };
+
   if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
   if (loading) return <p>Loading...</p>;
   if (!user) return <p>Please log in to view your schedule.</p>;
@@ -368,7 +388,7 @@ export default function SchedulePage() {
   const aiRemaining = subscription?.remaining ?? Math.max(0, FREE_LIMIT - aiUsageCount);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         <Mascot mood={aiPreviewEvents ? "celebrate" : "focus"} message="Plan your week once, then execute with less stress." />
 
@@ -413,7 +433,10 @@ export default function SchedulePage() {
           </section>
         )}
 
-        <section className="bg-white p-6 rounded-2xl border border-indigo-100 shadow">
+        <section className={`bg-white p-6 rounded-2xl border border-indigo-100 shadow relative overflow-hidden ${modeAnimation ? "mode-card-animate mode-glow" : ""}`}>
+          <div className={`absolute inset-0 bg-gradient-to-r ${modeTone[aiMode]} transition-all duration-700 pointer-events-none`} />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.48),transparent_55%)] pointer-events-none" />
+          <div className="relative z-10">
           <h2 className="text-xl font-semibold mb-1">Add Event</h2>
           <p className="text-sm text-gray-600 mb-4">Add classes/assignments, then generate an optimized week with AI.</p>
 
@@ -421,18 +444,18 @@ export default function SchedulePage() {
             <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">AI planning mode</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { key: "balanced", label: "Balanced" },
-                { key: "deep_focus", label: "Deep Focus" },
-                { key: "light_week", label: "Light Week" },
+                { key: "balanced", label: "Balanced", active: "bg-indigo-600 border-indigo-600 text-white", idle: "hover:border-indigo-300" },
+                { key: "deep_focus", label: "Deep Focus", active: "bg-emerald-600 border-emerald-600 text-white", idle: "hover:border-emerald-300" },
+                { key: "light_week", label: "Light Week", active: "bg-amber-500 border-amber-500 text-slate-900", idle: "hover:border-amber-300" },
               ].map((m) => (
                 <button
                   key={m.key}
                   type="button"
-                  onClick={() => setAiMode(m.key as PlanMode)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                  onClick={() => handleModeSelect(m.key as PlanMode)}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-all duration-300 ${
                     aiMode === m.key
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-slate-300 hover:border-slate-500"
+                      ? `${m.active} shadow-lg`
+                      : `bg-white text-slate-700 border-slate-300 ${m.idle}`
                   }`}
                 >
                   {m.label}
@@ -504,6 +527,7 @@ export default function SchedulePage() {
             >
               {loadingSuggestions ? "Generating suggestions..." : "AI Suggestions"}
             </button>
+          </div>
           </div>
         </section>
 

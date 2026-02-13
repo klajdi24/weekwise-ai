@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 import Mascot from "../components/mascot";
 
 type SummaryMode = "quick" | "exam" | "deep";
@@ -106,8 +107,11 @@ export default function Summarize() {
         body: formData,
       });
 
-      const data = (await res.json()) as SummarizeResponse;
-      if (!res.ok) throw new Error(data.error || "Failed to summarize PDF");
+      const data = (await res.json()) as SummarizeResponse & AiClientErrorPayload;
+      if (!res.ok) {
+        const message = extractAiError(data, "Failed to summarize PDF");
+        throw new Error(isPlanLimitError(data) ? `${message} Upgrade in Pricing to continue.` : message);
+      }
 
       setSummary(data.summary || "");
       setKeyPoints(data.keyPoints || []);
@@ -144,7 +148,7 @@ export default function Summarize() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-100 p-6 md:p-8">
+    <main className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
         <Mascot
           mood={uiState === "success" ? "celebrate" : uiState === "loading" ? "focus" : "happy"}
