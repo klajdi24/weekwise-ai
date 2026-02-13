@@ -103,19 +103,19 @@ export default function MomentumPage() {
           <p className="text-violet-100/90 mt-3 max-w-2xl">Live progress from your schedule and fitness data.</p>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
               <p className="text-xs text-violet-200">Checklist Completion</p>
               <p className="text-3xl font-bold mt-1">{loading ? "..." : `${completionPct}%`}</p>
             </div>
-            <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
               <p className="text-xs text-violet-200">XP Earned Today</p>
               <p className="text-3xl font-bold mt-1">{loading ? "..." : `+${earnedXp}`}</p>
             </div>
-            <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
               <p className="text-xs text-violet-200">Streak Status</p>
               <p className="text-3xl font-bold mt-1">{loading ? "..." : streakLabel}</p>
             </div>
-            <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
               <p className="text-xs text-violet-200">Consistency</p>
               <p className="text-3xl font-bold mt-1">{loading ? "..." : `${summary?.consistencyScore ?? 0}`}</p>
             </div>

@@ -144,21 +144,21 @@ export default function PricingPage() {
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-indigo-100 bg-white p-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="rounded-2xl border border-indigo-100 bg-white p-4 flex items-center justify-between flex-wrap gap-3 section-enter">
           <div>
             <p className="font-semibold text-slate-900">Billing</p>
             <p className="text-xs text-slate-500">Switch display to see annual savings</p>
           </div>
-          <div className="inline-flex rounded-full border border-slate-300 p-1 bg-slate-50">
+          <div className="segmented">
             <button
               onClick={() => onToggleCycle("monthly")}
-              className={`px-4 py-1.5 rounded-full text-sm ${billingCycle === "monthly" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+              className={`segmented-btn ${billingCycle === "monthly" ? "active" : ""}`}
             >
               Monthly
             </button>
             <button
               onClick={() => onToggleCycle("annual")}
-              className={`px-4 py-1.5 rounded-full text-sm ${billingCycle === "annual" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+              className={`segmented-btn ${billingCycle === "annual" ? "active" : ""}`}
             >
               Annual (Save 20%)
             </button>
@@ -238,10 +238,10 @@ export default function PricingPage() {
                 ["Motivation/streak features", "✓", "✓", "✓"],
                 ["Priority processing", "—", "✓", "✓"],
                 ["Support level", "Standard", "Priority email", "Priority + fast lane"],
-              ].map((row) => (
+              ].map((row, rowIndex) => (
                 <tr key={row[0]} className="border-t border-slate-100">
-                  {row.map((cell) => (
-                    <td key={cell} className="p-3 text-slate-700">{cell}</td>
+                  {row.map((cell, cellIndex) => (
+                    <td key={`${rowIndex}-${cellIndex}-${cell}`} className="p-3 text-slate-700">{cell}</td>
                   ))}
                 </tr>
               ))}
@@ -258,7 +258,7 @@ export default function PricingPage() {
 
         {checkoutError ? <p className="text-sm text-rose-600">{checkoutError}</p> : null}
 
-        <div className="rounded-2xl bg-white border border-indigo-100 p-5 shadow flex flex-wrap gap-3 items-center justify-between">
+        <div className="rounded-2xl bg-white card-hover border border-indigo-100 p-5 shadow flex flex-wrap gap-3 items-center justify-between">
           <p className="text-gray-700">Need plan controls? Open Billing Settings.</p>
           <div className="flex gap-3">
             <Link href="/settings/billing" className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50">Billing Settings</Link>

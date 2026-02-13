@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
-import {
-  FREE_DAILY_AI_LIMIT,
-  consumeAiAction,
-  getAiUsageToday,
-  getSubscriptionSnapshot,
-  trackEvent,
-} from "@/lib/subscription";
+import { AiError, badInput, providerError, unauthorized } from "@/lib/ai/errors";
+import { consumeQuotaOrThrow, finalizeUsage } from "@/lib/ai/quota";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 const EVENT_TYPES = ["Lecture", "Assignment", "Study"] as const;
 
 type EventType = (typeof EVENT_TYPES)[number];
 type DayName = (typeof DAYS)[number];
-
 type PlanMode = "balanced" | "deep_focus" | "light_week";
 
 interface ScheduleEventPayload {
@@ -65,44 +59,22 @@ function normalizeEvent(input: ScheduleEventPayload): ScheduleEventPayload {
 export async function POST(req: NextRequest) {
   try {
     const token = getBearerToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized: missing session token" }, { status: 401 });
-    }
+    if (!token) throw unauthorized();
 
     const supabase = createAuthedSupabaseClient(token);
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userRes?.user) {
-      return NextResponse.json({ error: "Unauthorized: invalid session" }, { status: 401 });
-    }
+    if (userErr || !userRes?.user) throw unauthorized();
     const userId = userRes.user.id;
 
-    const [subscription, used] = await Promise.all([
-      getSubscriptionSnapshot(supabase, userId),
-      getAiUsageToday(supabase, userId),
-    ]);
-
-    if (!subscription.isUnlimitedAi && used >= FREE_DAILY_AI_LIMIT) {
-      await trackEvent(supabase, userId, "paywall_viewed", { feature: "ai_schedule", trigger: "daily_limit" });
-      return NextResponse.json(
-        { error: "Daily free AI limit reached (5/day). Start your 7-day Pro trial for unlimited AI.", code: "FREE_LIMIT_REACHED" },
-        { status: 402 }
-      );
-    }
+    const quota = await consumeQuotaOrThrow(supabase, userId, "schedule");
 
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "AI is temporarily unavailable (missing OpenAI API key)." },
-        { status: 503 }
-      );
-    }
-    const openai = new OpenAI({ apiKey });
+    if (!apiKey) throw providerError("AI is temporarily unavailable (missing OpenAI API key).");
 
     const { events, mode } = (await req.json()) as { events?: unknown[]; mode?: PlanMode };
-    if (!Array.isArray(events)) {
-      return NextResponse.json({ error: "Invalid events input" }, { status: 400 });
-    }
+    if (!Array.isArray(events)) throw badInput("Invalid events input");
+    if (events.length > 200) throw badInput("Too many events. Please keep schedule input under 200 items.");
 
     const planMode: PlanMode = mode && ["balanced", "deep_focus", "light_week"].includes(mode)
       ? mode
@@ -149,43 +121,57 @@ OUTPUT JSON ONLY in this format:
 No markdown. No extra text.
 `;
 
+    if (prompt.length > 22_000) throw badInput("Schedule payload too large.");
+
+    const openai = new OpenAI({ apiKey });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.5,
+      max_tokens: 950,
     });
 
     const raw = completion.choices?.[0]?.message?.content;
-    if (!raw) {
-      return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
-    }
+    if (!raw) throw providerError("Empty AI response");
 
     let parsed: ScheduleResponsePayload;
     try {
       parsed = JSON.parse(raw) as ScheduleResponsePayload;
     } catch {
-      return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+      throw providerError("AI returned invalid JSON");
     }
 
     const cleanedEvents = Array.isArray(parsed.events)
       ? parsed.events.filter(isScheduleEventPayload).map((e) => normalizeEvent(e))
       : [];
 
-    await consumeAiAction(supabase, userId, "schedule");
-    await trackEvent(supabase, userId, "ai_schedule_generated", { mode: planMode, eventsIn: events.length, eventsOut: cleanedEvents.length });
-
-    const remaining = subscription.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - (used + 1));
+    const usage = completion.usage;
+    await finalizeUsage(supabase, quota.usageId, {
+      request_tokens: usage?.prompt_tokens ?? 0,
+      response_tokens: usage?.completion_tokens ?? 0,
+      total_tokens: usage?.total_tokens ?? 0,
+      cost_estimate: 0,
+    });
 
     return NextResponse.json({
       events: cleanedEvents,
       explanation:
         parsed.explanation ||
         "This schedule balances your workload and adds study time ahead of deadlines to reduce stress.",
-      remaining,
-      isUnlimitedAi: subscription.isUnlimitedAi,
+      usage: {
+        used: quota.used,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        period: quota.period,
+        resetAt: quota.resetAt,
+        plan: quota.plan,
+      },
     });
   } catch (error: unknown) {
+    if (error instanceof AiError) {
+      return NextResponse.json(error.toPayload(), { status: error.status });
+    }
     const message = error instanceof Error ? error.message : "Failed to generate AI schedule";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, code: "INTERNAL_ERROR", message }, { status: 500 });
   }
 }

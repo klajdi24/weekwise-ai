@@ -6,6 +6,8 @@ import { getSupabaseClient } from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { Workout } from "@/lib/types";
+import Mascot from "../components/mascot";
+import AchievementBurst from "../components/achievement-burst";
 
 interface GamificationSummary {
   xp: number;
@@ -30,6 +32,7 @@ export default function FitnessPage() {
   const [steps, setSteps] = useState(2000);
 
   const [summary, setSummary] = useState<GamificationSummary | null>(null);
+  const [showBurst, setShowBurst] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -149,6 +152,7 @@ export default function FitnessPage() {
 
     if (data && data.length > 0) {
       setWorkouts((prev) => prev.map((w) => (w.id === tempWorkout.id ? (data[0] as Workout) : w)));
+      setShowBurst(true);
     }
   };
 
@@ -160,8 +164,10 @@ export default function FitnessPage() {
   if (loadingWorkouts) return <p>Loading workouts...</p>;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-indigo-100 p-6 md:p-8">
+    <main className="min-h-screen app-surface p-6 md:p-8">
+      <AchievementBurst show={showBurst} text="Workout logged! +Momentum" onDone={() => setShowBurst(false)} />
       <div className="max-w-6xl mx-auto space-y-6">
+        <Mascot mood={showBurst ? "celebrate" : "focus"} message="Train body, sharpen focus. Every workout protects your streak." />
         <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
           <h1 className="text-3xl font-bold">🏋️ Fitness & Energy</h1>
           <p className="text-slate-300 mt-2">Stay physically active to keep your study performance sharp and your streak alive.</p>
@@ -173,19 +179,19 @@ export default function FitnessPage() {
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Workouts</p>
             <p className="text-3xl font-bold mt-1">{workouts.length}</p>
           </div>
-          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Total Steps</p>
             <p className="text-3xl font-bold mt-1">{totalSteps.toLocaleString()}</p>
           </div>
-          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">XP</p>
             <p className="text-3xl font-bold mt-1">{summary?.xp ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white border border-emerald-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Streak</p>
             <p className="text-3xl font-bold mt-1">🔥 {summary?.streak ?? 0}</p>
           </div>

@@ -116,13 +116,13 @@ export default function EssayPage() {
           <p className="text-slate-300 mt-2">Generate outlines, drafts, and improved rewrites with academic structure and study checklists.</p>
         </section>
 
-        <section className="bg-white rounded-2xl border border-amber-100 shadow p-6 space-y-4">
+        <section className="bg-white rounded-2xl card-hover border border-amber-100 shadow p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Essay question / brief</label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="w-full border rounded-lg p-3 min-h-24"
+              className="w-full input-polish p-3 min-h-24"
               placeholder="Example: To what extent did the Industrial Revolution improve quality of life?"
             />
           </div>
@@ -132,7 +132,7 @@ export default function EssayPage() {
             <textarea
               value={context}
               onChange={(e) => setContext(e.target.value)}
-              className="w-full border rounded-lg p-3 min-h-20"
+              className="w-full input-polish p-3 min-h-20"
               placeholder="Paste points from lectures, required structure, or feedback from your tutor."
             />
           </div>
@@ -140,7 +140,7 @@ export default function EssayPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Task</label>
-              <select value={essayType} onChange={(e) => setEssayType(e.target.value as EssayType)} className="w-full border rounded-lg p-2">
+              <select value={essayType} onChange={(e) => setEssayType(e.target.value as EssayType)} className="w-full input-polish p-2">
                 <option value="outline">Detailed outline</option>
                 <option value="draft">First draft</option>
                 <option value="improve">Improve existing writing</option>
@@ -149,7 +149,7 @@ export default function EssayPage() {
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Tone</label>
-              <select value={tone} onChange={(e) => setTone(e.target.value as EssayTone)} className="w-full border rounded-lg p-2">
+              <select value={tone} onChange={(e) => setTone(e.target.value as EssayTone)} className="w-full input-polish p-2">
                 <option value="academic">Academic</option>
                 <option value="clear">Clear & simple</option>
                 <option value="persuasive">Persuasive</option>
@@ -164,7 +164,7 @@ export default function EssayPage() {
                 min={200}
                 max={2500}
                 onChange={(e) => setWordCount(Number(e.target.value || 900))}
-                className="w-full border rounded-lg p-2"
+                className="w-full input-polish p-2"
               />
             </div>
           </div>
@@ -181,7 +181,7 @@ export default function EssayPage() {
         </section>
 
         {result && (
-          <section className="bg-white rounded-2xl border border-amber-100 shadow p-6 space-y-4">
+          <section className="bg-white rounded-2xl card-hover border border-amber-100 shadow p-6 space-y-4">
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <h2 className="text-2xl font-bold text-slate-900">{result.title}</h2>
               <div className="flex gap-2">

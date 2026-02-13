@@ -95,32 +95,57 @@ drop policy if exists profiles_own_delete on public.profiles;
 create policy profiles_own_delete on public.profiles for delete using (id = auth.uid());
 
 -- user_id = auth.uid() policies for user-owned tables
+
+drop policy if exists tasks_own_select on public.tasks;
 create policy tasks_own_select on public.tasks for select using (user_id = auth.uid());
+drop policy if exists tasks_own_insert on public.tasks;
 create policy tasks_own_insert on public.tasks for insert with check (user_id = auth.uid());
+drop policy if exists tasks_own_update on public.tasks;
 create policy tasks_own_update on public.tasks for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists tasks_own_delete on public.tasks;
 create policy tasks_own_delete on public.tasks for delete using (user_id = auth.uid());
 
+drop policy if exists study_sessions_own_select on public.study_sessions;
 create policy study_sessions_own_select on public.study_sessions for select using (user_id = auth.uid());
+drop policy if exists study_sessions_own_insert on public.study_sessions;
 create policy study_sessions_own_insert on public.study_sessions for insert with check (user_id = auth.uid());
+drop policy if exists study_sessions_own_update on public.study_sessions;
 create policy study_sessions_own_update on public.study_sessions for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists study_sessions_own_delete on public.study_sessions;
 create policy study_sessions_own_delete on public.study_sessions for delete using (user_id = auth.uid());
 
+drop policy if exists streaks_own_select on public.streaks;
 create policy streaks_own_select on public.streaks for select using (user_id = auth.uid());
+drop policy if exists streaks_own_insert on public.streaks;
 create policy streaks_own_insert on public.streaks for insert with check (user_id = auth.uid());
+drop policy if exists streaks_own_update on public.streaks;
 create policy streaks_own_update on public.streaks for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists streaks_own_delete on public.streaks;
 create policy streaks_own_delete on public.streaks for delete using (user_id = auth.uid());
 
+drop policy if exists xp_ledger_own_select on public.xp_ledger;
 create policy xp_ledger_own_select on public.xp_ledger for select using (user_id = auth.uid());
+drop policy if exists xp_ledger_own_insert on public.xp_ledger;
 create policy xp_ledger_own_insert on public.xp_ledger for insert with check (user_id = auth.uid());
+drop policy if exists xp_ledger_own_update on public.xp_ledger;
 create policy xp_ledger_own_update on public.xp_ledger for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists xp_ledger_own_delete on public.xp_ledger;
 create policy xp_ledger_own_delete on public.xp_ledger for delete using (user_id = auth.uid());
 
+drop policy if exists subscriptions_own_select on public.subscriptions;
 create policy subscriptions_own_select on public.subscriptions for select using (user_id = auth.uid());
+drop policy if exists subscriptions_own_insert on public.subscriptions;
 create policy subscriptions_own_insert on public.subscriptions for insert with check (user_id = auth.uid());
+drop policy if exists subscriptions_own_update on public.subscriptions;
 create policy subscriptions_own_update on public.subscriptions for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists subscriptions_own_delete on public.subscriptions;
 create policy subscriptions_own_delete on public.subscriptions for delete using (user_id = auth.uid());
 
+drop policy if exists analytics_events_own_select on public.analytics_events;
 create policy analytics_events_own_select on public.analytics_events for select using (user_id = auth.uid());
+drop policy if exists analytics_events_own_insert on public.analytics_events;
 create policy analytics_events_own_insert on public.analytics_events for insert with check (user_id = auth.uid());
+drop policy if exists analytics_events_own_update on public.analytics_events;
 create policy analytics_events_own_update on public.analytics_events for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists analytics_events_own_delete on public.analytics_events;
 create policy analytics_events_own_delete on public.analytics_events for delete using (user_id = auth.uid());

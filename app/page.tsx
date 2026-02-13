@@ -168,8 +168,8 @@ export default function Home() {
   }, [today]);
 
   return (
-    <main className="min-h-screen p-6 md:p-10">
-      <section className="max-w-6xl mx-auto space-y-6">
+    <main className="min-h-screen app-surface p-6 md:p-10">
+      <section className="max-w-6xl mx-auto space-y-6 app-layer">
         <Mascot mood={running ? "focus" : "happy"} message="Small daily wins beat last-minute panic. Let’s lock your next move." />
 
         <div className="rounded-2xl p-6 md:p-8 bg-gray-900 text-white shadow-xl">
@@ -179,14 +179,14 @@ export default function Home() {
         </div>
 
         {loadError && (
-          <div className="card-soft p-4 border-rose-200 bg-rose-50 text-rose-800 text-sm flex items-center justify-between gap-3">
+          <div className="card-soft card-hover p-4 border-rose-200 bg-rose-50 text-rose-800 text-sm flex items-center justify-between gap-3">
             <span>{loadError}</span>
             <button onClick={() => window.location.reload()} className="btn-secondary">Retry</button>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="card-soft p-5">
+          <div className="card-soft card-hover p-5">
             <p className="text-xs uppercase tracking-wide text-slate-500">Deadline Intelligence</p>
             <p className="text-xl font-bold mt-1">Risk Score: {deadlineRisk.score}/100 ({deadlineRisk.label})</p>
             <p className="text-sm text-slate-600 mt-1">{deadlineRisk.hint}</p>
@@ -194,7 +194,7 @@ export default function Home() {
             <Link href="/schedule" className="inline-block mt-3 text-indigo-700 text-sm font-semibold">Auto-plan in Schedule →</Link>
           </div>
 
-          <div className="card-soft p-5">
+          <div className="card-soft card-hover p-5">
             <p className="text-xs uppercase tracking-wide text-slate-500">Daily Focus Engine</p>
             <p className="text-4xl font-bold mt-2">{timerText}</p>
             <div className="mt-3 flex gap-2 flex-wrap">
@@ -216,7 +216,7 @@ export default function Home() {
             <p className="text-xs text-slate-500 mt-2">Break prompt after each session. One tap to restart.</p>
           </div>
 
-          <div className="card-soft p-5">
+          <div className="card-soft card-hover p-5">
             <p className="text-xs uppercase tracking-wide text-slate-500">Plan My Day</p>
             {today?.priorities?.length ? (
               <ul className="mt-2 space-y-2">
@@ -234,7 +234,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="card-soft p-5">
+        <div className="card-soft card-hover p-5">
           <p className="text-xs uppercase tracking-wide text-slate-500">End-of-day check-in</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
             <label className="text-sm">
@@ -245,7 +245,7 @@ export default function Home() {
                 min={0}
                 value={checkIn.done}
                 onChange={(e) => setCheckIn((v) => ({ ...v, done: Number(e.target.value) }))}
-                className="mt-1 w-full border p-2 rounded-lg"
+                className="mt-1 w-full input-polish p-2 rounded-lg"
               />
             </label>
             <label className="text-sm">
@@ -256,7 +256,7 @@ export default function Home() {
                 min={0}
                 value={checkIn.moved}
                 onChange={(e) => setCheckIn((v) => ({ ...v, moved: Number(e.target.value) }))}
-                className="mt-1 w-full border p-2 rounded-lg"
+                className="mt-1 w-full input-polish p-2 rounded-lg"
               />
             </label>
             <label className="text-sm md:col-span-2">
@@ -266,7 +266,7 @@ export default function Home() {
                 value={checkIn.blocked}
                 onChange={(e) => setCheckIn((v) => ({ ...v, blocked: e.target.value }))}
                 placeholder="e.g. lab overran / low energy"
-                className="mt-1 w-full border p-2 rounded-lg"
+                className="mt-1 w-full input-polish p-2 rounded-lg"
               />
             </label>
           </div>
@@ -288,7 +288,7 @@ export default function Home() {
                   <p className="text-2xl font-bold mt-1">Level {momentum.level} • {momentum.xp} XP • 🔥 {momentum.streak} day streak</p>
                   <p className="text-sm mt-1">{momentum.streakAdvice}</p>
                 </div>
-                <Link href="/momentum" className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black transition">Open Momentum</Link>
+                <Link href="/momentum" className="btn-primary">Open Momentum</Link>
               </div>
               <p className="text-sm mt-3 font-medium">Next best action: {momentum.nextBestAction}</p>
             </div>
@@ -310,11 +310,11 @@ export default function Home() {
 
 function FeatureCard({ title, text, href, cta, color }: { title: string; text: string; href: string; cta: string; color: string }) {
   return (
-    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow hover:shadow-lg transition">
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow card-hover">
       <h2 className="text-xl font-semibold mb-2">{title}</h2>
       <p className="text-gray-600 mb-4">{text}</p>
       <Link href={href}>
-        <button className={`${color} text-white px-4 py-2 rounded-lg transition`}>{cta}</button>
+        <button className={`${color} text-white px-4 py-2 rounded-lg transition hover:-translate-y-0.5 active:scale-[0.98]`}>{cta}</button>
       </Link>
     </div>
   );

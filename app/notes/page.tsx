@@ -97,11 +97,11 @@ export default function Notes() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Module</label>
-              <input value={module} onChange={(e) => setModule(e.target.value)} className="w-full border p-2 rounded-lg" placeholder="e.g. Economics 201" />
+              <input value={module} onChange={(e) => setModule(e.target.value)} className="w-full input-polish p-2 rounded-lg" placeholder="e.g. Economics 201" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Mode</label>
-              <select value={mode} onChange={(e) => setMode(e.target.value as NotesMode)} className="w-full border p-2 rounded-lg">
+              <select value={mode} onChange={(e) => setMode(e.target.value as NotesMode)} className="w-full input-polish p-2 rounded-lg">
                 <option value="summarize">Summarize</option>
                 <option value="quiz">Quiz me (5 questions)</option>
               </select>
@@ -112,7 +112,7 @@ export default function Notes() {
             placeholder="Paste lecture notes, reading notes, or tutorial notes here..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            className="w-full border p-4 rounded-lg h-56 resize-none"
+            className="w-full input-polish p-4 rounded-lg h-56 resize-none"
           />
 
           <button
@@ -127,7 +127,7 @@ export default function Notes() {
         </section>
 
         {result && (
-          <section className="bg-white rounded-2xl shadow border border-cyan-100 p-6 space-y-5">
+          <section className="bg-white rounded-2xl card-hover shadow border border-cyan-100 p-6 space-y-5">
             <div className="flex flex-wrap items-center gap-2 justify-between">
               <h2 className="text-2xl font-bold text-cyan-900">Your Study Output</h2>
               <div className="flex gap-2 text-sm">

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
-import {
-  FREE_DAILY_AI_LIMIT,
-  consumeAiAction,
-  getAiUsageToday,
-  getSubscriptionSnapshot,
-  trackEvent,
-} from "@/lib/subscription";
+import { AiError, badInput, providerError, unauthorized } from "@/lib/ai/errors";
+import { consumeQuotaOrThrow, finalizeUsage } from "@/lib/ai/quota";
+import { getUserPlan, type Plan } from "@/lib/ai/entitlements";
 
 interface PdfParseResult {
   text?: string;
@@ -18,7 +14,11 @@ type PdfParseFn = (buffer: Buffer) => Promise<PdfParseResult>;
 type SummaryMode = "quick" | "exam" | "deep";
 type SummaryFormat = "paragraph" | "bullets" | "flashcards";
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const PLAN_FILE_LIMIT_MB: Record<Plan, number> = {
+  free: 10,
+  pro: 25,
+  unlimited: 50,
+};
 
 function getBearerToken(req: NextRequest) {
   const auth = req.headers.get("authorization") || "";
@@ -49,72 +49,60 @@ function estimateXp(mode: SummaryMode, format: SummaryFormat) {
 export async function POST(req: NextRequest) {
   try {
     const token = getBearerToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized: missing session token" }, { status: 401 });
-    }
+    if (!token) throw unauthorized();
 
     const supabase = createAuthedSupabaseClient(token);
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userRes?.user) {
-      return NextResponse.json({ error: "Unauthorized: invalid session" }, { status: 401 });
-    }
+    if (userErr || !userRes?.user) throw unauthorized();
 
     const userId = userRes.user.id;
-    const [subscription, used] = await Promise.all([
-      getSubscriptionSnapshot(supabase, userId),
-      getAiUsageToday(supabase, userId),
-    ]);
-
-    if (!subscription.isUnlimitedAi && used >= FREE_DAILY_AI_LIMIT) {
-      await trackEvent(supabase, userId, "paywall_viewed", { feature: "ai_summarize", trigger: "daily_limit" });
-      return NextResponse.json(
-        {
-          error: `Daily free AI limit reached (${FREE_DAILY_AI_LIMIT}/day). Start your 7-day Pro trial for unlimited summaries.`,
-          code: "FREE_LIMIT_REACHED",
-        },
-        { status: 403 }
-      );
-    }
+    const planSnapshot = await getUserPlan(supabase, userId);
+    const maxMb = PLAN_FILE_LIMIT_MB[planSnapshot.plan] ?? 10;
+    const maxBytes = maxMb * 1024 * 1024;
 
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "AI is temporarily unavailable (missing OpenAI API key)." },
-        { status: 503 }
-      );
-    }
-
-    const openai = new OpenAI({ apiKey });
+    if (!apiKey) throw providerError("AI is temporarily unavailable (missing OpenAI API key).");
 
     const formData = await req.formData();
     const file = formData.get("file");
     const mode = sanitizeMode((formData.get("mode") as string | null) ?? null);
     const format = sanitizeFormat((formData.get("format") as string | null) ?? null);
 
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "No PDF uploaded" }, { status: 400 });
+    if (!(file instanceof File)) throw badInput("No file uploaded. Please choose a PDF file.");
+    const fileMb = Number((file.size / (1024 * 1024)).toFixed(2));
+    if (file.size > maxBytes) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "FILE_TOO_LARGE",
+          message: "Uploaded PDF exceeds your plan limit.",
+          maxMb,
+          plan: planSnapshot.plan,
+          fileMb,
+        },
+        { status: 413 },
+      );
     }
+    if (!file.name.toLowerCase().endsWith(".pdf")) throw badInput("Only .pdf files are supported");
+    if (file.type && file.type !== "application/pdf") throw badInput("Uploaded file is not a valid PDF.");
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return NextResponse.json({ error: "PDF is too large. Max size is 10MB." }, { status: 400 });
-    }
-
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      return NextResponse.json({ error: "Only .pdf files are supported" }, { status: 400 });
-    }
+    const quota = await consumeQuotaOrThrow(supabase, userId, "summarize");
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const pdfParseModule = await import("pdf-parse");
-    const pdfParse = (pdfParseModule.default as PdfParseFn) || (pdfParseModule as unknown as PdfParseFn);
+    let pdfData: PdfParseResult;
+    try {
+      const pdfParseModule = await import("pdf-parse/lib/pdf-parse.js");
+      const pdfParse = pdfParseModule.default as PdfParseFn;
+      pdfData = await pdfParse(buffer);
+    } catch {
+      throw badInput("Could not read this PDF. The file may be corrupt or password-protected.");
+    }
 
-    const pdfData = await pdfParse(buffer);
     const text = truncateText((pdfData.text || "").trim());
 
-    if (!text) {
-      return NextResponse.json({ error: "No readable text found in this PDF." }, { status: 400 });
-    }
+    if (!text) throw badInput("No readable text found in this PDF.");
 
     const modeInstruction =
       mode === "deep"
@@ -130,6 +118,7 @@ export async function POST(req: NextRequest) {
         ? "Return flashcard-friendly Q/A style points where useful."
         : "Return bullet-heavy structure with clear sectioning.";
 
+    const openai = new OpenAI({ apiKey });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.35,
@@ -145,10 +134,11 @@ export async function POST(req: NextRequest) {
         },
       ],
       response_format: { type: "json_object" },
+      max_tokens: 900,
     });
 
     const raw = completion.choices?.[0]?.message?.content?.trim() || "";
-    if (!raw) return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
+    if (!raw) throw providerError("Empty AI response");
 
     let parsed: {
       summary?: string;
@@ -165,7 +155,7 @@ export async function POST(req: NextRequest) {
         quizQuestions?: unknown;
       };
     } catch {
-      return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+      throw providerError("AI returned invalid JSON");
     }
 
     const toStringArray = (value: unknown) =>
@@ -176,15 +166,17 @@ export async function POST(req: NextRequest) {
     const actionItems = toStringArray(parsed.actionItems);
     const quizQuestions = toStringArray(parsed.quizQuestions);
 
-    if (!summary) {
-      return NextResponse.json({ error: "Summary generation failed." }, { status: 500 });
-    }
+    if (!summary) throw providerError("Summary generation failed.");
 
-    await consumeAiAction(supabase, userId, "summarize");
-    await trackEvent(supabase, userId, "summary_generated", { mode, format, source: "pdf" });
+    const usage = completion.usage;
+    await finalizeUsage(supabase, quota.usageId, {
+      request_tokens: usage?.prompt_tokens ?? 0,
+      response_tokens: usage?.completion_tokens ?? 0,
+      total_tokens: usage?.total_tokens ?? 0,
+      cost_estimate: 0,
+    });
 
     const xpReward = estimateXp(mode, format);
-    const remaining = subscription.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - (used + 1));
 
     return NextResponse.json({
       summary,
@@ -194,11 +186,20 @@ export async function POST(req: NextRequest) {
       mode,
       format,
       xpReward,
-      remaining,
-      isUnlimitedAi: subscription.isUnlimitedAi,
+      usage: {
+        used: quota.used,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        period: quota.period,
+        resetAt: quota.resetAt,
+        plan: quota.plan,
+      },
     });
   } catch (error: unknown) {
+    if (error instanceof AiError) {
+      return NextResponse.json(error.toPayload(), { status: error.status });
+    }
     const message = error instanceof Error ? error.message : "Failed to summarize PDF";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, code: "INTERNAL_ERROR", message }, { status: 500 });
   }
 }

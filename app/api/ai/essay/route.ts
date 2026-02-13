@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
-import {
-  FREE_DAILY_AI_LIMIT,
-  consumeAiAction,
-  getAiUsageToday,
-  getSubscriptionSnapshot,
-  trackEvent,
-} from "@/lib/subscription";
+import { AiError, badInput, providerError, unauthorized } from "@/lib/ai/errors";
+import { consumeQuotaOrThrow, finalizeUsage } from "@/lib/ai/quota";
 
 type EssayTone = "academic" | "clear" | "persuasive";
 type EssayType = "outline" | "draft" | "improve";
@@ -32,34 +27,25 @@ function validateWordCount(input: unknown) {
   return Math.max(200, Math.min(2500, Math.round(count)));
 }
 
+function estimateXp(essayType: EssayType) {
+  return essayType === "draft" ? 24 : essayType === "improve" ? 20 : 16;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const token = getBearerToken(req);
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) throw unauthorized();
 
     const supabase = createAuthedSupabaseClient(token);
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userRes?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (userErr || !userRes?.user) throw unauthorized();
 
     const userId = userRes.user.id;
-    const [subscription, used] = await Promise.all([
-      getSubscriptionSnapshot(supabase, userId),
-      getAiUsageToday(supabase, userId),
-    ]);
-
-    if (!subscription.isUnlimitedAi && used >= FREE_DAILY_AI_LIMIT) {
-      await trackEvent(supabase, userId, "paywall_viewed", { feature: "ai_essay", trigger: "daily_limit" });
-      return NextResponse.json(
-        { error: `Daily free AI limit reached (${FREE_DAILY_AI_LIMIT}/day). Start your 7-day Pro trial.`, code: "FREE_LIMIT_REACHED" },
-        { status: 403 }
-      );
-    }
+    const quota = await consumeQuotaOrThrow(supabase, userId, "essay");
 
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "AI unavailable. Missing OpenAI API key." }, { status: 503 });
-    }
+    if (!apiKey) throw providerError("AI is temporarily unavailable (missing OpenAI API key).");
 
     const body = (await req.json()) as {
       prompt?: string;
@@ -75,11 +61,7 @@ export async function POST(req: NextRequest) {
     const tone = sanitizeTone(body.tone);
     const wordCount = validateWordCount(body.wordCount);
 
-    if (!prompt) {
-      return NextResponse.json({ error: "Essay prompt is required." }, { status: 400 });
-    }
-
-    const openai = new OpenAI({ apiKey });
+    if (!prompt) throw badInput("Essay prompt is required.");
 
     const typeInstruction =
       essayType === "draft"
@@ -95,6 +77,7 @@ export async function POST(req: NextRequest) {
         ? "Use persuasive rhetoric while remaining academically credible."
         : "Use academic tone and precise argumentation.";
 
+    const openai = new OpenAI({ apiKey });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.45,
@@ -110,10 +93,11 @@ export async function POST(req: NextRequest) {
           content: `TASK: ${essayType}\nPROMPT: ${prompt}\nCONTEXT: ${context || "None provided"}\nWORD COUNT TARGET: ${wordCount}\nSTYLE: ${typeInstruction} ${toneInstruction}\n\nImportant: do not fabricate citations; instead suggest what evidence should be researched.`,
         },
       ],
+      max_tokens: 1000,
     });
 
     const raw = completion.choices?.[0]?.message?.content?.trim() || "";
-    if (!raw) return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
+    if (!raw) throw providerError("Empty AI response");
 
     let parsed: {
       title?: string;
@@ -132,19 +116,22 @@ export async function POST(req: NextRequest) {
         referencesNeeded?: unknown;
       };
     } catch {
-      return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 500 });
+      throw providerError("AI returned invalid JSON");
     }
 
     const toStringArray = (v: unknown) =>
       Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 8) : [];
 
     const output = typeof parsed.output === "string" ? parsed.output.trim() : "";
-    if (!output) return NextResponse.json({ error: "Essay generation failed" }, { status: 500 });
+    if (!output) throw providerError("Essay generation failed");
 
-    await consumeAiAction(supabase, userId, "essay");
-    await trackEvent(supabase, userId, "summary_generated", { mode: essayType, source: "essay" });
-
-    const remaining = subscription.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - (used + 1));
+    const usage = completion.usage;
+    await finalizeUsage(supabase, quota.usageId, {
+      request_tokens: usage?.prompt_tokens ?? 0,
+      response_tokens: usage?.completion_tokens ?? 0,
+      total_tokens: usage?.total_tokens ?? 0,
+      cost_estimate: 0,
+    });
 
     return NextResponse.json({
       title: typeof parsed.title === "string" ? parsed.title : "Essay Assistant Output",
@@ -152,12 +139,23 @@ export async function POST(req: NextRequest) {
       output,
       checklist: toStringArray(parsed.checklist),
       referencesNeeded: toStringArray(parsed.referencesNeeded),
-      xpReward: essayType === "draft" ? 24 : essayType === "improve" ? 20 : 16,
-      remaining,
-      isUnlimitedAi: subscription.isUnlimitedAi,
+      xpReward: estimateXp(essayType),
+      usage: {
+        used: quota.used,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        period: quota.period,
+        resetAt: quota.resetAt,
+        plan: quota.plan,
+      },
+      remaining: quota.remaining,
+      isUnlimitedAi: quota.plan === "pro",
     });
   } catch (error: unknown) {
+    if (error instanceof AiError) {
+      return NextResponse.json(error.toPayload(), { status: error.status });
+    }
     const message = error instanceof Error ? error.message : "Essay generation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, code: "INTERNAL_ERROR", message }, { status: 500 });
   }
 }

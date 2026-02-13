@@ -1,18 +1,26 @@
  M OPENCLAW_STATUS.txt
+ M app/api/ai/essay/route.ts
+ M app/api/ai/notes/route.ts
  M app/api/ai/schedule/route.ts
  M app/api/ai/suggest/route.ts
+ M app/api/ai/summarize/route.ts
  M app/api/ai/weekly-summary/route.ts
  M app/fitness/page.tsx
- M app/login/page.tsx
+ M app/globals.css
+ M app/notes/page.tsx
+ M app/page.tsx
+ M app/pricing/page.tsx
+ M app/profile/page.tsx
  M app/schedule/page.tsx
- M app/test/page.tsx
- M lib/supabaseClient.ts
-?? CHATGPT_NOTES.md
-?? DELIVERY_PLAN.md
-?? MONETIZATION_PLAN.md
-?? OPENCLAW_BOOTSTRAP.md
-?? OPENCLAW_DIFFSTAT.txt
-?? OPENCLAW_LOCAL_CHANGES.patch
-?? OPENCLAW_LOG.txt
-?? PROJECT_AUDIT.md
-?? lib/types.ts
+ M app/summarize/page.tsx
+ M package-lock.json
+ M package.json
+ M supabase/migrations/202602120835_weekwise_baseline.sql
+?? INFRA_SETUP.md
+?? app/api/billing/
+?? app/components/achievement-burst.tsx
+?? lib/ai/
+?? lib/stripe.ts
+?? supabase/.temp/
+?? supabase/migrations/202602121235_ai_monetization.sql
+?? supabase/migrations/202602121310_quota_atomic_and_stripe_idempotency.sql

@@ -197,16 +197,16 @@ export default function BillingSettingsPage() {
             </section>
 
             <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow space-y-4">
-              <div className="inline-flex rounded-full border border-slate-300 p-1 bg-slate-50">
+              <div className="segmented">
                 <button
                   onClick={() => setInterval("monthly")}
-                  className={`px-4 py-1.5 rounded-full text-sm ${interval === "monthly" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+                  className={`segmented-btn ${interval === "monthly" ? "active" : ""}`}
                 >
                   Monthly
                 </button>
                 <button
                   onClick={() => setInterval("annual")}
-                  className={`px-4 py-1.5 rounded-full text-sm ${interval === "annual" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+                  className={`segmented-btn ${interval === "annual" ? "active" : ""}`}
                 >
                   Annual
                 </button>

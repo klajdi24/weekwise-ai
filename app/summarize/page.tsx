@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
@@ -18,6 +19,12 @@ interface SummarizeResponse {
   remaining: number | null;
   isUnlimitedAi?: boolean;
   error?: string;
+}
+
+type UserPlan = "free" | "pro" | "unlimited";
+
+interface SubscriptionStatus {
+  plan: UserPlan;
 }
 
 type UiState = "idle" | "loading" | "success" | "error";
@@ -40,6 +47,7 @@ export default function Summarize() {
   const [uiState, setUiState] = useState<UiState>("idle");
   const [error, setError] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [plan, setPlan] = useState<UserPlan>("free");
 
   const estimatedReadMinutes = useMemo(() => {
     if (!summary) return 0;
@@ -53,12 +61,51 @@ export default function Summarize() {
     return "Quick mode is best for fast daily revision.";
   }, [mode]);
 
+  const maxMbForPlan = useMemo(() => (plan === "unlimited" ? 50 : plan === "pro" ? 25 : 10), [plan]);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const loadPlan = async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+
+      const res = await fetch("/api/subscription/status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+      const payload = (await res.json()) as SubscriptionStatus;
+      if (payload?.plan) setPlan(payload.plan);
+    };
+
+    loadPlan();
+  }, [supabase]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) {
-      setFile(e.target.files[0]);
-      setError("");
-      if (uiState === "error") setUiState("idle");
+    if (!e.target.files?.length) return;
+
+    const selected = e.target.files[0];
+    const fileMb = Number((selected.size / (1024 * 1024)).toFixed(2));
+
+    if (selected.type && selected.type !== "application/pdf") {
+      setFile(null);
+      setError("Only PDF files are supported.");
+      setUiState("error");
+      return;
     }
+
+    if (fileMb > maxMbForPlan) {
+      setFile(null);
+      setError(`Your file is ${fileMb} MB. Max for ${plan} is ${maxMbForPlan} MB.`);
+      setUiState("error");
+      return;
+    }
+
+    setFile(selected);
+    setError("");
+    if (uiState === "error") setUiState("idle");
   };
 
   const handleSubmit = async () => {
@@ -107,8 +154,18 @@ export default function Summarize() {
         body: formData,
       });
 
-      const data = (await res.json()) as SummarizeResponse & AiClientErrorPayload;
+      const data = (await res.json()) as SummarizeResponse & AiClientErrorPayload & {
+        maxMb?: number;
+        plan?: UserPlan;
+        fileMb?: number;
+      };
       if (!res.ok) {
+        if (data.code === "FILE_TOO_LARGE") {
+          const serverPlan = data.plan ?? plan;
+          const serverMax = data.maxMb ?? maxMbForPlan;
+          const uploaded = data.fileMb ?? Number(((file?.size ?? 0) / (1024 * 1024)).toFixed(2));
+          throw new Error(`Your file is ${uploaded} MB. Max for ${serverPlan} is ${serverMax} MB.`);
+        }
         const message = extractAiError(data, "Failed to summarize PDF");
         throw new Error(isPlanLimitError(data) ? `${message} Upgrade in Pricing to continue.` : message);
       }
@@ -166,7 +223,7 @@ export default function Summarize() {
           </p>
         </section>
 
-        <section className="bg-white rounded-2xl border border-violet-100 shadow p-6 space-y-4">
+        <section className="bg-white rounded-2xl card-hover border border-violet-100 shadow p-6 space-y-4">
           <div>
             <label htmlFor="pdf-upload" className="block text-sm font-semibold text-slate-700 mb-2">Upload PDF</label>
             <input
@@ -178,6 +235,7 @@ export default function Summarize() {
               aria-label="Upload lecture PDF"
             />
             {file && <p className="text-xs text-slate-500 mt-2">Selected: {file.name}</p>}
+            <p className="text-xs text-slate-500 mt-2">Plan upload limit: {maxMbForPlan} MB ({plan} plan)</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -187,7 +245,7 @@ export default function Summarize() {
                 id="summary-mode"
                 value={mode}
                 onChange={(e) => setMode(e.target.value as SummaryMode)}
-                className="w-full border rounded-lg p-2"
+                className="w-full input-polish p-2"
               >
                 <option value="quick">Quick review</option>
                 <option value="exam">Exam prep</option>
@@ -202,7 +260,7 @@ export default function Summarize() {
                 id="summary-format"
                 value={format}
                 onChange={(e) => setFormat(e.target.value as SummaryFormat)}
-                className="w-full border rounded-lg p-2"
+                className="w-full input-polish p-2"
               >
                 <option value="bullets">Bullet points</option>
                 <option value="paragraph">Concise paragraphs</option>
@@ -229,7 +287,14 @@ export default function Summarize() {
 
           {remaining !== null && <p className="text-xs text-slate-500">Free AI uses remaining today: {remaining}</p>}
 
-          {uiState === "error" && <p className="text-red-600" role="alert">{error}</p>}
+          {uiState === "error" && (
+            <div className="space-y-2" role="alert">
+              <p className="text-red-600">{error}</p>
+              {(error.includes("Max for free") || error.includes("Max for pro") || error.includes("Upgrade")) && (
+                <Link href="/pricing" className="inline-block text-sm text-indigo-700 underline">Upgrade plan for larger PDFs</Link>
+              )}
+            </div>
+          )}
         </section>
 
         {uiState === "idle" && !summary && (
@@ -239,7 +304,7 @@ export default function Summarize() {
         )}
 
         {uiState === "loading" && (
-          <section className="bg-white rounded-2xl shadow border border-violet-100 p-6 space-y-4">
+          <section className="bg-white rounded-2xl card-hover shadow border border-violet-100 p-6 space-y-4">
             <div className="h-6 w-44 bg-slate-100 rounded animate-pulse" />
             <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
             <div className="h-4 w-11/12 bg-slate-100 rounded animate-pulse" />
@@ -248,7 +313,7 @@ export default function Summarize() {
         )}
 
         {summary && (
-          <section className="bg-white rounded-2xl shadow border border-violet-100 p-6 space-y-5">
+          <section className="bg-white rounded-2xl card-hover shadow border border-violet-100 p-6 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-2xl font-bold text-violet-900">Your Study Pack</h2>
               <div className="flex items-center gap-2 text-sm">

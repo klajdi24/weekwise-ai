@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import Mascot from "../components/mascot";
+import AchievementBurst from "../components/achievement-burst";
 
 interface Badge {
   id: string;
@@ -44,6 +46,7 @@ export default function Profile() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [showBurst, setShowBurst] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -119,38 +122,47 @@ export default function Profile() {
 
   const unlockedBadges = useMemo(() => summary?.badges?.filter((b) => b.unlocked) ?? [], [summary]);
 
+  useEffect(() => {
+    if (!summary) return;
+    if ((summary.dailyGoalDone ?? 0) >= (summary.dailyGoalTarget ?? 999)) {
+      setShowBurst(true);
+    }
+  }, [summary]);
+
   if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
   if (loading) return <p>Loading...</p>;
   if (!user) return <p>Redirecting to login...</p>;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-fuchsia-100 p-6 md:p-8">
+    <main className="min-h-screen app-surface p-6 md:p-8">
+      <AchievementBurst show={showBurst} text="Daily goal achieved!" onDone={() => setShowBurst(false)} />
       <div className="max-w-5xl mx-auto space-y-6">
+        <Mascot mood={showBurst ? "celebrate" : "happy"} message="You’re building a real study identity — keep the streak alive." />
         <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
           <h1 className="text-3xl font-bold">👤 Profile & Progress</h1>
           <p className="text-slate-300 mt-2">Your momentum, rewards and account controls in one place.</p>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl bg-white border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Current XP</p>
             <p className="text-3xl font-bold mt-1">{summaryLoading ? "..." : summary?.xp ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Level</p>
             <p className="text-3xl font-bold mt-1">{summaryLoading ? "..." : summary?.level ?? 1}</p>
           </div>
-          <div className="rounded-2xl bg-white border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Streak</p>
             <p className="text-3xl font-bold mt-1">🔥 {summaryLoading ? "..." : summary?.streak ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Plan</p>
             <p className="text-2xl font-bold mt-1">{summaryLoading ? "..." : summary?.isPremium ? "Premium" : "Free"}</p>
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white border border-indigo-100 shadow p-6">
+        <section className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold">Level Progress</h2>
             <span className="text-sm text-slate-500">{summary?.levelProgressPct ?? 0}%</span>
@@ -182,7 +194,7 @@ export default function Profile() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white border border-indigo-100 shadow p-6">
+        <section className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-6">
           <h2 className="text-xl font-semibold mb-3">Badges</h2>
 
           {summaryLoading && <p className="text-slate-500">Loading badge progress...</p>}
@@ -208,7 +220,7 @@ export default function Profile() {
           <p className="text-xs text-slate-500 mt-4">Unlocked: {unlockedBadges.length}</p>
         </section>
 
-        <section className="rounded-2xl bg-white border border-indigo-100 shadow p-6">
+        <section className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-6">
           <h2 className="text-xl font-semibold mb-2">Subscription</h2>
           <p className="text-sm text-slate-600">
             Plan: <span className="font-semibold text-slate-900">{subscription?.planLabel ?? (summary?.isPremium ? "Premium" : "Free")}</span>
@@ -230,7 +242,7 @@ export default function Profile() {
 
         <section className="bg-white p-6 rounded-2xl shadow border border-gray-100 max-w-md">
           <label className="block text-gray-600 font-semibold mb-1">Email</label>
-          <input type="email" value={user.email || ""} className="w-full border p-2 rounded mb-4" disabled />
+          <input type="email" value={user.email || ""} className="w-full input-polish p-2 rounded mb-4" disabled />
 
           <button
             onClick={handleLogout}
