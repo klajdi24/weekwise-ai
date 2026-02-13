@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthedSupabaseClient } from "@/lib/serverSupabase";
-import { FREE_DAILY_AI_LIMIT, getAiUsageToday, getSubscriptionSnapshot } from "@/lib/subscription";
+import { getCurrentUsage, getUserPlan } from "@/lib/ai/entitlements";
 
 function getBearerToken(req: NextRequest) {
   const auth = req.headers.get("authorization") || "";
@@ -8,9 +8,9 @@ function getBearerToken(req: NextRequest) {
   return match?.[1] || null;
 }
 
-function planLabel(plan: "free" | "pro_trial" | "pro") {
-  if (plan === "pro_trial") return "Pro Trial";
+function planLabel(plan: "free" | "pro" | "unlimited") {
   if (plan === "pro") return "Pro";
+  if (plan === "unlimited") return "Unlimited (Fair Use)";
   return "Free";
 }
 
@@ -27,30 +27,30 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = userRes.user.id;
-
-    const [snapshot, used] = await Promise.all([
-      getSubscriptionSnapshot(supabase, userId),
-      getAiUsageToday(supabase, userId),
-    ]);
-
-    const remaining = snapshot.isUnlimitedAi ? null : Math.max(0, FREE_DAILY_AI_LIMIT - used);
+    const plan = await getUserPlan(supabase, userId);
+    const usage = await getCurrentUsage(supabase, userId, plan.plan);
+    const usagePct = usage.limit > 0 ? Math.round((usage.used / usage.limit) * 100) : 0;
 
     return NextResponse.json({
-      isPremium: snapshot.plan === "pro" || snapshot.plan === "pro_trial",
-      freeLimit: FREE_DAILY_AI_LIMIT,
-      used,
-      remaining,
-      canUseAi: snapshot.isUnlimitedAi || (remaining ?? 0) > 0,
-      plan: snapshot.plan,
-      planLabel: planLabel(snapshot.plan),
-      trialEndsAt: snapshot.trialEndsAt,
-      trialDaysLeft: snapshot.trialDaysLeft,
+      isPremium: plan.plan !== "free",
+      freeLimit: usage.limit,
+      used: usage.used,
+      remaining: plan.plan === "unlimited" ? null : usage.remaining,
+      canUseAi: usage.remaining > 0,
+      plan: plan.plan,
+      planLabel: planLabel(plan.plan),
+      billingInterval: plan.billing_interval ?? "monthly",
+      period: usage.period,
+      resetAt: usage.resetAt,
+      status: plan.status,
+      usagePct,
+      nearLimit: plan.plan !== "unlimited" && usagePct >= 80,
       cta:
-        snapshot.plan === "free"
-          ? "Start 7-day free trial"
-          : snapshot.plan === "pro_trial"
-          ? "Manage trial"
-          : "Manage subscription",
+        plan.plan === "free"
+          ? "Upgrade to Pro"
+          : plan.plan === "pro"
+          ? "Upgrade to Unlimited"
+          : "Manage billing",
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load subscription status";
