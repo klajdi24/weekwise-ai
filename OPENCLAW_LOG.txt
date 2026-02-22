@@ -1,0 +1,28 @@
+* c3df121 (HEAD -> recovery/chat-restart-20260211-0800, origin/main, origin/HEAD, main) Update package-lock.json
+* 7938c75 Fix Supabase profiles + schedule AI flow
+* cadfcfe fix: build-safe supabase client + schedule/fitness updates
+* d3c351b fix: prevent OpenAI routes crashing builds without env key
+* c82290e fix: remove supabase from<T> generics in schedule page
+* 02687d8 fix: supabase typing error in schedule page
+* 00b7a71 fix: supabase typing error in fitness page for production build
+* ac6d5bd Force redeploy
+* 655b9e8 Trigger redeploy
+* 63e0dce Update AI schedule route and SchedulePage, add AI improvements
+* 39f807d Add fully working Schedule and Fitness pages with instant logging
+* 0e44407 Initial commit - WeekWise AI app
+* ecd669a Add Summarize page link to navbar
+* 955eada Initial commit of PDF summarizer project
+* f90403a Fix folder structure for API route
+* 5803cf1 Add PDF summarization page and API route
+* 487e05c Add React TypeScript types
+* ec4dd5d Add lowercase navbar/footer to all pages
+* 6a5afe4 Full app structure ready for Vercel
+* 50ee4ef Rename Schedule folder to lowercase for App Router
+* 6b5cfc8 Temporary rename to fix case
+* 83ec1cd Force full redeploy
+* 9271d22 Update Home & Schedule pages with Link navigation
+* 952c1ec Fix Schedule page as client component
+* fdb2674 Initial commit
+* 6aca519 Add interactive Academic Schedule page and update Home links
+* 10d51cf Add professional WeekWise AI homepage layout
+* 4405ce8 Initial commit

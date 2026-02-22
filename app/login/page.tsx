@@ -14,13 +14,15 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleLogin = async () => {
+    if (!supabase) {
+      setErrorMsg("App is not configured. Missing Supabase environment variables.");
+      return;
+    }
+
     setLoading(true);
     setErrorMsg("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setErrorMsg(error.message);
@@ -32,14 +34,15 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="bg-white p-8 rounded-xl shadow w-full max-w-md">
-        <h1 className="text-3xl font-bold mb-6 text-center">🔑 Login</h1>
+    <main className="min-h-screen app-surface flex items-center justify-center p-6">
+      <div className="card-bubbly card-hover p-8 w-full max-w-md app-layer">
+        <p className="text-xs uppercase tracking-[0.2em] text-indigo-500 font-semibold text-center">WeekWise AI</p>
+        <h1 className="text-3xl font-black mt-2 mb-6 text-center text-slate-900">🔑 Welcome back</h1>
 
         <input
           type="email"
           placeholder="Email"
-          className="w-full border p-2 rounded mb-4"
+          className="w-full input-polish p-2.5 mb-4"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -47,20 +50,16 @@ export default function LoginPage() {
         <input
           type="password"
           placeholder="Password"
-          className="w-full border p-2 rounded mb-4"
+          className="w-full input-polish p-2.5 mb-4"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-        >
+        <button onClick={handleLogin} disabled={loading} className="w-full btn-primary disabled:opacity-60">
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        {errorMsg && <p className="text-red-600 mt-3">{errorMsg}</p>}
+        {errorMsg && <p className="text-red-600 mt-3 text-sm">{errorMsg}</p>}
       </div>
     </main>
   );

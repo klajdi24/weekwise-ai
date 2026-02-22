@@ -1,0 +1,20 @@
+ OPENCLAW_DIFFSTAT.txt                              |  10 --
+ OPENCLAW_STATUS.txt                                |  32 +++---
+ app/api/ai/essay/route.ts                          |   9 +-
+ app/api/ai/notes/route.ts                          |   9 +-
+ app/api/ai/schedule/route.ts                       |  80 ++++++---------
+ app/api/ai/suggest/route.ts                        |  81 +++++++--------
+ app/api/ai/summarize/route.ts                      |  95 +++++++-----------
+ app/api/ai/weekly-summary/route.ts                 |  70 ++++++++++---
+ app/fitness/page.tsx                               |   8 +-
+ app/globals.css                                    | 111 ++++++++++++++++++++-
+ app/notes/page.tsx                                 |   8 +-
+ app/page.tsx                                       |   4 +-
+ app/pricing/page.tsx                               |   4 +-
+ app/profile/page.tsx                               |  14 ++-
+ app/schedule/page.tsx                              |  35 +++++--
+ app/summarize/page.tsx                             |   2 +-
+ package-lock.json                                  |  20 +++-
+ package.json                                       |   3 +-
+ .../migrations/202602120835_weekwise_baseline.sql  |  25 +++++
+ 19 files changed, 395 insertions(+), 225 deletions(-)
