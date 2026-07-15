@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
+import PageShell, { PageHero } from "../components/page-shell";
+import Reveal from "../components/reveal";
+import Mascot from "../components/mascot";
 
 interface ChecklistItem {
   id: string;
@@ -46,13 +50,7 @@ export default function MomentumPage() {
       setError(null);
 
       try {
-        const [{ data: userData }, { data: sessionData }] = await Promise.all([
-          supabase.auth.getUser(),
-          supabase.auth.getSession(),
-        ]);
-
-        const user = userData?.user;
-        const token = sessionData?.session?.access_token;
+        const { user, accessToken: token } = await getClientAuth(supabase);
 
         if (!user || !token) {
           router.replace("/login");
@@ -60,9 +58,7 @@ export default function MomentumPage() {
         }
 
         const res = await fetch("/api/gamification/summary", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         const data = (await res.json()) as MomentumSummary & { error?: string };
@@ -89,64 +85,90 @@ export default function MomentumPage() {
 
   const streakLabel =
     summary?.streakStatus === "safe"
-      ? "🔥 Safe"
+      ? "Safe"
       : summary?.streakStatus === "warming"
-      ? "⚡ Building"
-      : "⚠️ At Risk";
+        ? "Building"
+        : "At risk";
+
+  const streakTone =
+    summary?.streakStatus === "risk"
+      ? "text-rose-300"
+      : summary?.streakStatus === "warming"
+        ? "text-amber-300"
+        : "text-teal-300";
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-900 text-white p-6 md:p-10">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <section className="rounded-3xl border border-white/20 bg-white/10 backdrop-blur-xl p-6 md:p-8 shadow-2xl">
-          <p className="text-xs uppercase tracking-[0.2em] text-violet-200">WeekWise Momentum</p>
-          <h1 className="text-3xl md:text-4xl font-bold mt-2">Your Daily Momentum Center</h1>
-          <p className="text-violet-100/90 mt-3 max-w-2xl">Live progress from your schedule and fitness data.</p>
+    <PageShell>
+      <Reveal>
+        <div className="reveal-item">
+          <Mascot
+            mood={summary?.streakStatus === "safe" ? "celebrate" : "happy"}
+            message="Your streak is a habit engine — protect it with one small win today."
+          />
+        </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
-              <p className="text-xs text-violet-200">Checklist Completion</p>
-              <p className="text-3xl font-bold mt-1">{loading ? "..." : `${completionPct}%`}</p>
-            </div>
-            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
-              <p className="text-xs text-violet-200">XP Earned Today</p>
-              <p className="text-3xl font-bold mt-1">{loading ? "..." : `+${earnedXp}`}</p>
-            </div>
-            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
-              <p className="text-xs text-violet-200">Streak Status</p>
-              <p className="text-3xl font-bold mt-1">{loading ? "..." : streakLabel}</p>
-            </div>
-            <div className="rounded-2xl bg-white card-hover/10 border border-white/20 p-4">
-              <p className="text-xs text-violet-200">Consistency</p>
-              <p className="text-3xl font-bold mt-1">{loading ? "..." : `${summary?.consistencyScore ?? 0}`}</p>
-            </div>
-          </div>
-        </section>
+        <div className="reveal-item">
+          <PageHero
+            eyebrow="Momentum"
+            title="Daily momentum centre"
+            subtitle="Live progress from your schedule and fitness — turn activity into XP and streak safety."
+            meta={
+              <>
+                <span className="stat-chip">{completionPct}% checklist</span>
+                <span className="stat-chip">+{earnedXp} XP today</span>
+                <span className={`stat-chip ${streakTone}`}>{streakLabel} streak</span>
+              </>
+            }
+          />
+        </div>
 
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 rounded-3xl bg-white text-slate-900 p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold">Today&apos;s Power Checklist</h2>
-            <p className="text-slate-600 mt-1">These are generated from your real app activity.</p>
+        <div className="reveal-item grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Checklist", value: loading ? "…" : `${completionPct}%` },
+            { label: "XP earned today", value: loading ? "…" : `+${earnedXp}` },
+            { label: "Streak", value: loading ? "…" : streakLabel },
+            { label: "Consistency", value: loading ? "…" : `${summary?.consistencyScore ?? 0}` },
+          ].map((s) => (
+            <div key={s.label} className="card-soft p-4 card-hover">
+              <p className="eyebrow text-slate-500">{s.label}</p>
+              <p className="font-display text-3xl font-bold mt-2 text-slate-900">{s.value}</p>
+            </div>
+          ))}
+        </div>
 
-            {loading && <p className="mt-4 text-slate-500">Loading checklist...</p>}
-            {error && <p className="mt-4 text-red-600">{error}</p>}
+        <section className="reveal-item grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 card-soft p-6">
+            <h2 className="section-title text-slate-900">Today&apos;s power checklist</h2>
+            <p className="helper-text mt-1">Generated from your real app activity.</p>
+
+            {loading && (
+              <div className="mt-4 space-y-3">
+                <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+              </div>
+            )}
+            {error && <p className="mt-4 text-rose-600 text-sm">{error}</p>}
 
             {!loading && !error && (
               <div className="mt-5 space-y-3">
                 {(summary?.checklist ?? []).map((item) => (
                   <div
                     key={item.id}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all duration-300 ${
-                      item.done
-                        ? "border-emerald-300 bg-emerald-50 shadow-md"
-                        : "border-slate-200 bg-white"
+                    className={`p-4 rounded-2xl border transition-all duration-300 ${
+                      item.done ? "border-teal-200 bg-teal-50 shadow-sm" : "border-slate-200 bg-white"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-semibold">{item.done ? "✅" : "⭕"} {item.label}</p>
+                        <p className="font-semibold text-slate-900">
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${item.done ? "bg-teal-500" : "bg-slate-300"}`} />
+                          {item.label}
+                        </p>
                         <p className="text-sm text-slate-500 mt-1">Reward: +{item.xp} XP</p>
                       </div>
-                      <span className="text-sm font-semibold text-violet-700">{item.done ? "Done" : "Pending"}</span>
+                      <span className={`text-sm font-semibold ${item.done ? "text-teal-700" : "text-slate-400"}`}>
+                        {item.done ? "Done" : "Pending"}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -154,34 +176,46 @@ export default function MomentumPage() {
             )}
           </div>
 
-          <div className="rounded-3xl bg-white/10 border border-white/20 backdrop-blur-xl p-5 shadow-2xl space-y-4">
+          <div className="card-soft p-5 space-y-5">
             <div>
-              <h3 className="text-xl font-bold">Level Progress</h3>
-              <p className="text-sm text-violet-100 mt-1">Level {summary?.level ?? 1} • {summary?.xp ?? 0} XP</p>
-              <div className="mt-3 w-full bg-white/20 rounded-full h-2 overflow-hidden">
-                <div className="h-full bg-emerald-400 transition-all duration-700" style={{ width: `${summary?.levelProgressPct ?? 0}%` }} />
+              <h3 className="font-display text-xl font-semibold text-slate-900">Level progress</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Level {summary?.level ?? 1} · {summary?.xp ?? 0} XP
+              </p>
+              <div className="mt-3 w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700"
+                  style={{ width: `${summary?.levelProgressPct ?? 0}%` }}
+                />
               </div>
-              <p className="text-xs text-violet-100 mt-2">{summary?.xpToNextLevel ?? 0} XP to next level</p>
+              <p className="text-xs text-slate-500 mt-2">{summary?.xpToNextLevel ?? 0} XP to next level</p>
             </div>
 
-            <div className="rounded-2xl bg-black/20 border border-white/10 p-4">
-              <p className="text-xs uppercase tracking-wide text-violet-200">Daily Goal</p>
-              <p className="text-sm mt-2 text-violet-50">
+            <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
+              <p className="eyebrow text-teal-800">Daily goal</p>
+              <p className="text-sm mt-2 text-slate-800">
                 {summary?.dailyGoalDone ?? 0}/{summary?.dailyGoalTarget ?? 0} key actions completed.
               </p>
-              <p className="text-xs text-violet-200 mt-2">
-                Last workout: {summary?.latestWorkoutAt ? new Date(summary.latestWorkoutAt).toLocaleString() : "No workouts yet"}
+              <p className="text-xs text-slate-500 mt-2">
+                Last workout:{" "}
+                {summary?.latestWorkoutAt ? new Date(summary.latestWorkoutAt).toLocaleString() : "No workouts yet"}
               </p>
             </div>
 
-            <div className="mt-2 flex flex-col gap-3">
-              <Link href="/schedule" className="rounded-xl bg-indigo-500 hover:bg-indigo-400 px-4 py-3 font-semibold transition">Open Schedule</Link>
-              <Link href="/fitness" className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3 font-semibold transition">Open Fitness</Link>
-              <Link href="/summarize" className="rounded-xl bg-violet-500 hover:bg-violet-400 px-4 py-3 font-semibold transition">Open Summarizer</Link>
+            <div className="flex flex-col gap-2">
+              <Link href="/schedule" className="btn-primary w-full">
+                Open Schedule
+              </Link>
+              <Link href="/fitness" className="btn-secondary w-full">
+                Open Fitness
+              </Link>
+              <Link href="/summarize" className="btn-ghost w-full">
+                Open Summarizer
+              </Link>
             </div>
           </div>
         </section>
-      </div>
-    </main>
+      </Reveal>
+    </PageShell>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 import Mascot from "../components/mascot";
 
@@ -46,12 +47,9 @@ export default function Notes() {
     setResult(null);
 
     try {
-      const [{ data: userData }, { data: sessionData }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.auth.getSession(),
-      ]);
+      const { user, accessToken } = await getClientAuth(supabase);
 
-      if (!userData?.user || !sessionData?.session?.access_token) {
+      if (!user || !accessToken) {
         router.replace("/login");
         return;
       }
@@ -60,7 +58,7 @@ export default function Notes() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           text: inputText,
@@ -84,13 +82,14 @@ export default function Notes() {
   };
 
   return (
-    <main className="min-h-screen app-surface p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6 app-layer">
         <Mascot mood={result ? "celebrate" : "happy"} message="Drop your lecture notes and I’ll turn them into revision fuel." />
 
-        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">📝 Lecture Notes Studio</h1>
-          <p className="text-slate-300 mt-2">Turn raw class notes into summary bullets, key terms, and quiz-ready revision prompts.</p>
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Notes</p>
+          <h1 className="page-title text-white mt-2">Lecture notes studio</h1>
+          <p className="text-teal-50/75 mt-3">Turn raw class notes into summary bullets, key terms, and quiz-ready revision prompts.</p>
         </section>
 
         <section className="card-bubbly rounded-2xl border border-cyan-100 shadow p-6 space-y-4">
@@ -118,7 +117,7 @@ export default function Notes() {
           <button
             onClick={generateNotes}
             disabled={loading}
-            className="bg-cyan-600 text-white px-6 py-2 rounded-lg hover:bg-cyan-700 transition disabled:opacity-60 hover:-translate-y-0.5"
+            className="btn-primary"
           >
             {loading ? "Generating..." : mode === "quiz" ? "Generate Quiz Pack" : "Generate Study Notes"}
           </button>
@@ -176,6 +175,6 @@ export default function Notes() {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }

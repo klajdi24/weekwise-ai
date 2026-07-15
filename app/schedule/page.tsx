@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 import Mascot from "../components/mascot";
 
@@ -91,9 +92,9 @@ export default function SchedulePage() {
   const [modeAnimation, setModeAnimation] = useState(false);
 
   const modeTone: Record<PlanMode, string> = {
-    balanced: "from-indigo-500/20 via-violet-500/15 to-sky-500/20",
-    deep_focus: "from-emerald-500/25 via-cyan-500/20 to-blue-500/25",
-    light_week: "from-amber-400/25 via-rose-300/20 to-fuchsia-400/25",
+    balanced: "from-teal-500/20 via-cyan-500/15 to-sky-500/20",
+    deep_focus: "from-emerald-500/25 via-teal-500/20 to-sky-500/25",
+    light_week: "from-amber-400/25 via-orange-300/15 to-teal-400/20",
   };
 
   const getAccessTokenOrThrow = useCallback(async () => {
@@ -129,10 +130,9 @@ export default function SchedulePage() {
 
     const init = async () => {
       try {
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr) console.error("User fetch error:", userErr);
+        const { user: sessionUser } = await getClientAuth(supabase);
 
-        if (!userData?.user) {
+        if (!sessionUser) {
           setUser(null);
           setIsPremium(false);
           setAiUsageCount(0);
@@ -141,12 +141,12 @@ export default function SchedulePage() {
           return;
         }
 
-        setUser(userData.user);
+        setUser(sessionUser);
 
         const { data: profile, error: profileErr } = await supabase
           .from("profiles")
           .select("is_premium, ai_usage_count")
-          .eq("id", userData.user.id)
+          .eq("id", sessionUser.id)
           .maybeSingle();
 
         if (profileErr) console.error("Profile fetch error:", profileErr);
@@ -154,7 +154,7 @@ export default function SchedulePage() {
         if (!profile) {
           const { error: upsertErr } = await supabase
             .from("profiles")
-            .upsert([{ id: userData.user.id, is_premium: false, ai_usage_count: 0 }], { onConflict: "id" });
+            .upsert([{ id: sessionUser.id, is_premium: false, ai_usage_count: 0 }], { onConflict: "id" });
 
           if (upsertErr) console.error("Profile create/upsert error:", upsertErr);
 
@@ -388,36 +388,31 @@ export default function SchedulePage() {
   const aiRemaining = subscription?.remaining ?? Math.max(0, FREE_LIMIT - aiUsageCount);
 
   return (
-    <div className="min-h-screen app-surface p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen app-surface p-5 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6 app-layer">
         <Mascot mood={aiPreviewEvents ? "celebrate" : "focus"} message="Plan your week once, then execute with less stress." />
 
-        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">📅 Week Planner</h1>
-          <p className="text-slate-300 mt-2 max-w-3xl">
-            Stay in control with an AI-optimized weekly plan. Add your classes and tasks, then let WeekWise build better study momentum.
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Schedule</p>
+          <h1 className="page-title text-white mt-2">Week planner</h1>
+          <p className="text-teal-50/75 mt-3 max-w-3xl">
+            Stay in control with an AI-optimized weekly plan. Add classes and tasks, then let WeekWise build study momentum.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3 text-sm">
-            <span className="bg-white/10 px-3 py-1 rounded-full">{events.length} total events</span>
-            <span className="bg-white/10 px-3 py-1 rounded-full">{studyBlocks} study blocks</span>
-            <span className="bg-white/10 px-3 py-1 rounded-full">{assignmentCount} assignments</span>
-            <span className="bg-white/10 px-3 py-1 rounded-full">{isPremium ? "Premium AI: Unlimited" : `Free AI left: ${aiRemaining}`}</span>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2 text-sm">
-            <Link href="/fitness" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">🏋️ Fitness</Link>
-            <Link href="/momentum" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">⚡ Momentum</Link>
-            <Link href="/profile" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">👤 Profile</Link>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <span className="stat-chip">{events.length} events</span>
+            <span className="stat-chip">{studyBlocks} study blocks</span>
+            <span className="stat-chip">{assignmentCount} assignments</span>
+            <span className="stat-chip">{isPremium ? "Premium AI · Unlimited" : `Free AI left · ${aiRemaining}`}</span>
           </div>
         </section>
 
         {!isPremium && (
-          <section className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-4 flex flex-wrap items-center justify-between gap-3">
+          <section className="rounded-2xl border border-teal-200 bg-teal-50 p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-semibold text-fuchsia-900">Free plan: {aiRemaining}/{subscription?.freeLimit ?? FREE_LIMIT} AI actions left</p>
-              <p className="text-sm text-fuchsia-800">Start your 7-day Premium trial to unlock unlimited scheduling and suggestions.</p>
+              <p className="font-semibold text-teal-950">Free plan: {aiRemaining}/{subscription?.freeLimit ?? FREE_LIMIT} AI actions left</p>
+              <p className="text-sm text-teal-800">Start your 7-day Premium trial to unlock unlimited scheduling and suggestions.</p>
             </div>
-            <Link href="/pricing" className="rounded-lg bg-fuchsia-600 text-white px-4 py-2 font-semibold hover:bg-fuchsia-700">Start free trial</Link>
+            <Link href="/pricing" className="btn-primary">Start free trial</Link>
           </section>
         )}
 
@@ -433,19 +428,19 @@ export default function SchedulePage() {
           </section>
         )}
 
-        <section className={`bg-white p-6 rounded-2xl border border-indigo-100 shadow relative overflow-hidden ${modeAnimation ? "mode-card-animate mode-glow" : ""}`}>
+        <section className={`card-soft p-6 relative overflow-hidden ${modeAnimation ? "mode-card-animate mode-glow" : ""}`}>
           <div className={`absolute inset-0 bg-gradient-to-r ${modeTone[aiMode]} transition-all duration-700 pointer-events-none`} />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.48),transparent_55%)] pointer-events-none" />
           <div className="relative z-10">
-          <h2 className="text-xl font-semibold mb-1">Add Event</h2>
-          <p className="text-sm text-gray-600 mb-4">Add classes/assignments, then generate an optimized week with AI.</p>
+          <h2 className="section-title text-slate-900 mb-1">Add event</h2>
+          <p className="helper-text mb-4">Add classes/assignments, then generate an optimized week with AI.</p>
 
           <div className="mb-4">
-            <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">AI planning mode</p>
+            <p className="eyebrow text-slate-500 mb-2">AI planning mode</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { key: "balanced", label: "Balanced", active: "bg-indigo-600 border-indigo-600 text-white", idle: "hover:border-indigo-300" },
-                { key: "deep_focus", label: "Deep Focus", active: "bg-emerald-600 border-emerald-600 text-white", idle: "hover:border-emerald-300" },
+                { key: "balanced", label: "Balanced", active: "bg-teal-600 border-teal-600 text-white", idle: "hover:border-teal-300" },
+                { key: "deep_focus", label: "Deep Focus", active: "bg-slate-900 border-slate-900 text-white", idle: "hover:border-slate-400" },
                 { key: "light_week", label: "Light Week", active: "bg-amber-500 border-amber-500 text-slate-900", idle: "hover:border-amber-300" },
               ].map((m) => (
                 <button
@@ -465,37 +460,37 @@ export default function SchedulePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-            <label className="md:col-span-2 text-sm">
+            <label className="md:col-span-2 text-sm font-medium text-slate-700">
               Title
-              <input className="mt-1 w-full border p-2 rounded-lg" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className="mt-1 w-full input-polish p-2.5" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
             </label>
 
-            <label className="text-sm">
+            <label className="text-sm font-medium text-slate-700">
               Type
-              <select className="mt-1 w-full border p-2 rounded-lg" value={type} onChange={(e) => setType(e.target.value as EventType)}>
+              <select className="mt-1 w-full input-polish p-2.5" value={type} onChange={(e) => setType(e.target.value as EventType)}>
                 <option>Lecture</option>
                 <option>Assignment</option>
                 <option>Study</option>
               </select>
             </label>
 
-            <label className="text-sm">
+            <label className="text-sm font-medium text-slate-700">
               Day
-              <select className="mt-1 w-full border p-2 rounded-lg" value={day} onChange={(e) => setDay(e.target.value)}>
+              <select className="mt-1 w-full input-polish p-2.5" value={day} onChange={(e) => setDay(e.target.value)}>
                 {daysOfWeek.map((d) => (
                   <option key={d}>{d}</option>
                 ))}
               </select>
             </label>
 
-            <label className="text-sm">
+            <label className="text-sm font-medium text-slate-700">
               Start hour
-              <input type="number" className="mt-1 w-full border p-2 rounded-lg" min={0} max={23} value={startHour} onChange={(e) => setStartHour(Number(e.target.value))} />
+              <input type="number" className="mt-1 w-full input-polish p-2.5" min={0} max={23} value={startHour} onChange={(e) => setStartHour(Number(e.target.value))} />
             </label>
 
-            <label className="text-sm">
+            <label className="text-sm font-medium text-slate-700">
               Duration (h)
-              <input type="number" className="mt-1 w-full border p-2 rounded-lg" min={1} max={12} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+              <input type="number" className="mt-1 w-full input-polish p-2.5" min={1} max={12} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
             </label>
           </div>
 
@@ -506,7 +501,7 @@ export default function SchedulePage() {
           </p>
 
           <div className="flex flex-wrap gap-3 mt-4">
-            <button onClick={() => addEvent()} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+            <button onClick={() => addEvent()} className="btn-primary">
               Add Event
             </button>
 
@@ -523,7 +518,7 @@ export default function SchedulePage() {
             <button
               onClick={generateAISuggestions}
               disabled={loadingSuggestions || (!isPremium && aiRemaining <= 0)}
-              className="px-4 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition disabled:opacity-50"
+              className="btn-primary disabled:opacity-50"
             >
               {loadingSuggestions ? "Generating suggestions..." : "AI Suggestions"}
             </button>
@@ -532,9 +527,9 @@ export default function SchedulePage() {
         </section>
 
         {aiPreviewEvents && (
-          <section className="bg-violet-50 border border-violet-200 p-5 rounded-2xl">
-            <h3 className="font-semibold text-violet-900 mb-2">🤖 AI Schedule Preview</h3>
-            {aiExplanation && <p className="text-sm text-violet-800 whitespace-pre-line mb-3">{aiExplanation}</p>}
+          <section className="bg-teal-50 border border-teal-200 p-5 rounded-2xl">
+            <h3 className="font-semibold text-teal-900 mb-2">AI schedule preview</h3>
+            {aiExplanation && <p className="text-sm text-teal-800 whitespace-pre-line mb-3">{aiExplanation}</p>}
 
             <div className="flex gap-3">
               <button
@@ -584,7 +579,7 @@ export default function SchedulePage() {
                     <div
                       key={e.id}
                       className={`mb-2 p-2 rounded-lg border flex justify-between items-start gap-2 transition-all duration-300 hover:scale-[1.01] ${
-                        isHighlighted ? "bg-violet-200 border-violet-400" : eventColors[e.type]
+                        isHighlighted ? "bg-teal-200 border-teal-400" : eventColors[e.type]
                       }`}
                     >
                       <div className="text-sm">
@@ -612,8 +607,8 @@ export default function SchedulePage() {
 
       {aiSuggestions.length > 0 && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl card-hover shadow-lg max-w-md w-full p-6 relative border border-violet-100">
-            <h3 className="font-bold text-xl mb-4 text-violet-800">🤖 AI Suggestions</h3>
+          <div className="bg-white rounded-2xl card-hover shadow-lg max-w-md w-full p-6 relative border border-teal-100">
+            <h3 className="font-bold text-xl mb-4 text-teal-800">AI suggestions</h3>
 
             <button
               className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 font-bold text-lg"
@@ -626,7 +621,7 @@ export default function SchedulePage() {
               {aiSuggestions.map((s, idx) => (
                 <li
                   key={idx}
-                  className="border rounded-lg p-3 cursor-pointer hover:bg-violet-50 transition flex flex-col gap-1"
+                  className="border rounded-lg p-3 cursor-pointer hover:bg-teal-50 transition flex flex-col gap-1"
                   onClick={() => {
                     addEvent(s);
                     setAiSuggestions([]);

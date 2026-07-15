@@ -39,11 +39,11 @@ export default function AchievementBurst({ show, text = "Achievement unlocked!",
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[60] grid place-items-center">
-      <div className="absolute inset-0 bg-black/10" />
-      <div className="relative rounded-2xl bg-white border border-indigo-200 px-6 py-4 shadow-2xl animate-[popIn_.35s_ease]">
-        <p className="font-semibold text-indigo-900">{text}</p>
-        <div className="absolute -top-2 -left-2 h-3 w-3 rounded-full bg-fuchsia-400 animate-ping" />
-        <div className="absolute -top-2 -right-2 h-3 w-3 rounded-full bg-emerald-400 animate-ping [animation-delay:120ms]" />
+      <div className="absolute inset-0 bg-[#07121f]/25 backdrop-blur-[2px]" />
+      <div className="relative rounded-2xl bg-white border border-teal-200 px-6 py-4 shadow-2xl animate-pop-in">
+        <p className="font-display font-semibold text-teal-950">{text}</p>
+        <div className="absolute -top-2 -left-2 h-3 w-3 rounded-full bg-amber-400 animate-ping" />
+        <div className="absolute -top-2 -right-2 h-3 w-3 rounded-full bg-teal-400 animate-ping [animation-delay:120ms]" />
       </div>
     </div>
   );

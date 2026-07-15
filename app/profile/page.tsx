@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import Mascot from "../components/mascot";
@@ -52,10 +53,8 @@ export default function Profile() {
     if (!supabase) return;
 
     const init = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error("Get user error:", error);
-
-      setUser(data?.user ?? null);
+      const { user: sessionUser } = await getClientAuth(supabase);
+      setUser(sessionUser);
       setLoading(false);
     };
 
@@ -134,42 +133,43 @@ export default function Profile() {
   if (!user) return <p>Redirecting to login...</p>;
 
   return (
-    <main className="min-h-screen app-surface p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <AchievementBurst show={showBurst} text="Daily goal achieved!" onDone={() => setShowBurst(false)} />
       <div className="max-w-5xl mx-auto space-y-6">
         <Mascot mood={showBurst ? "celebrate" : "happy"} message="You’re building a real study identity — keep the streak alive." />
-        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">👤 Profile & Progress</h1>
-          <p className="text-slate-300 mt-2">Your momentum, rewards and account controls in one place.</p>
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Profile</p>
+          <h1 className="page-title text-white mt-2">Progress & account</h1>
+          <p className="text-teal-50/75 mt-3">Your momentum, rewards and account controls in one place.</p>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Current XP</p>
             <p className="text-3xl font-bold mt-1">{summaryLoading ? "..." : summary?.xp ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Level</p>
             <p className="text-3xl font-bold mt-1">{summaryLoading ? "..." : summary?.level ?? 1}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Streak</p>
             <p className="text-3xl font-bold mt-1">🔥 {summaryLoading ? "..." : summary?.streak ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-4">
+          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Plan</p>
             <p className="text-2xl font-bold mt-1">{summaryLoading ? "..." : summary?.isPremium ? "Premium" : "Free"}</p>
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-6">
+        <section className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold">Level Progress</h2>
             <span className="text-sm text-slate-500">{summary?.levelProgressPct ?? 0}%</span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all duration-700"
+              className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700"
               style={{ width: `${summary?.levelProgressPct ?? 0}%` }}
             />
           </div>
@@ -194,7 +194,7 @@ export default function Profile() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-6">
+        <section className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-6">
           <h2 className="text-xl font-semibold mb-3">Badges</h2>
 
           {summaryLoading && <p className="text-slate-500">Loading badge progress...</p>}
@@ -220,7 +220,7 @@ export default function Profile() {
           <p className="text-xs text-slate-500 mt-4">Unlocked: {unlockedBadges.length}</p>
         </section>
 
-        <section className="rounded-2xl bg-white card-hover border border-indigo-100 shadow p-6">
+        <section className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-6">
           <h2 className="text-xl font-semibold mb-2">Subscription</h2>
           <p className="text-sm text-slate-600">
             Plan: <span className="font-semibold text-slate-900">{subscription?.planLabel ?? (summary?.isPremium ? "Premium" : "Free")}</span>
@@ -231,7 +231,7 @@ export default function Profile() {
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link href="/pricing" className="px-4 py-2 rounded-lg bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition">
+            <Link href="/pricing" className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition">
               {subscription?.cta ?? "Upgrade for unlimited AI features"}
             </Link>
             <Link href="/schedule" className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition">
@@ -252,6 +252,6 @@ export default function Profile() {
           </button>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

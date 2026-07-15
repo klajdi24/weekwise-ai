@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
 import Mascot from "../components/mascot";
 
@@ -131,12 +132,9 @@ export default function Summarize() {
     setCopied(false);
 
     try {
-      const [{ data: userData }, { data: sessionData }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.auth.getSession(),
-      ]);
+      const { user, accessToken } = await getClientAuth(supabase);
 
-      if (!userData?.user || !sessionData?.session?.access_token) {
+      if (!user || !accessToken) {
         router.replace("/login");
         return;
       }
@@ -149,7 +147,7 @@ export default function Summarize() {
       const res = await fetch("/api/ai/summarize", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: formData,
       });
@@ -205,7 +203,7 @@ export default function Summarize() {
   };
 
   return (
-    <main className="min-h-screen app-surface p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
         <Mascot
           mood={uiState === "success" ? "celebrate" : uiState === "loading" ? "focus" : "happy"}
@@ -216,14 +214,15 @@ export default function Summarize() {
           }
         />
 
-        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">📄 Smart PDF Summarizer</h1>
-          <p className="text-slate-300 mt-2">
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Summarize</p>
+          <h1 className="page-title text-white mt-2">Smart PDF summarizer</h1>
+          <p className="text-teal-50/75 mt-3">
             Turn lecture slides into key concepts, actions, and quiz prompts in minutes.
           </p>
         </section>
 
-        <section className="bg-white rounded-2xl card-hover border border-violet-100 shadow p-6 space-y-4">
+        <section className="bg-white rounded-2xl card-hover border border-teal-100 shadow p-6 space-y-4">
           <div>
             <label htmlFor="pdf-upload" className="block text-sm font-semibold text-slate-700 mb-2">Upload PDF</label>
             <input
@@ -291,7 +290,7 @@ export default function Summarize() {
             <div className="space-y-2" role="alert">
               <p className="text-red-600">{error}</p>
               {(error.includes("Max for free") || error.includes("Max for pro") || error.includes("Upgrade")) && (
-                <Link href="/pricing" className="inline-block text-sm text-indigo-700 underline">Upgrade plan for larger PDFs</Link>
+                <Link href="/pricing" className="inline-block text-sm text-teal-700 underline">Upgrade plan for larger PDFs</Link>
               )}
             </div>
           )}
@@ -304,7 +303,7 @@ export default function Summarize() {
         )}
 
         {uiState === "loading" && (
-          <section className="bg-white rounded-2xl card-hover shadow border border-violet-100 p-6 space-y-4">
+          <section className="bg-white rounded-2xl card-hover shadow border border-teal-100 p-6 space-y-4">
             <div className="h-6 w-44 bg-slate-100 rounded animate-pulse" />
             <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
             <div className="h-4 w-11/12 bg-slate-100 rounded animate-pulse" />
@@ -313,12 +312,12 @@ export default function Summarize() {
         )}
 
         {summary && (
-          <section className="bg-white rounded-2xl card-hover shadow border border-violet-100 p-6 space-y-5">
+          <section className="bg-white rounded-2xl card-hover shadow border border-teal-100 p-6 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-2xl font-bold text-violet-900">Your Study Pack</h2>
+              <h2 className="text-2xl font-bold text-teal-900">Your Study Pack</h2>
               <div className="flex items-center gap-2 text-sm">
                 <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-semibold">+{xpReward} XP earned</span>
-                <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">~{estimatedReadMinutes} min read</span>
+                <span className="px-3 py-1 rounded-full bg-teal-100 text-teal-800">~{estimatedReadMinutes} min read</span>
                 <button
                   onClick={handleCopy}
                   className="px-3 py-1 rounded-full bg-slate-900 text-white hover:bg-black transition"
@@ -368,6 +367,6 @@ export default function Summarize() {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 
 type BillingPlan = "pro" | "unlimited";
 type BillingInterval = "monthly" | "annual";
@@ -34,10 +35,10 @@ export default function BillingSettingsPage() {
   const trackEvent = async (eventName: string, payload: Record<string, unknown> = {}) => {
     if (!supabase) return;
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
+      const { user } = await getClientAuth(supabase);
+      if (!user) return;
       await supabase.from("analytics_events").insert({
-        user_id: userData.user.id,
+        user_id: user.id,
         event_name: eventName,
         payload,
       });
@@ -163,11 +164,12 @@ export default function BillingSettingsPage() {
   const usageWidth = useMemo(() => Math.min(100, status?.usagePct ?? 0), [status?.usagePct]);
 
   return (
-    <main className="min-h-screen app-surface p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        <section className="rounded-2xl bg-slate-900 text-white p-6 shadow-xl">
-          <h1 className="text-3xl font-bold">Billing Settings</h1>
-          <p className="text-slate-300 mt-2">Manage your plan, quota usage, and billing controls.</p>
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Billing</p>
+          <h1 className="page-title text-white mt-2">Billing settings</h1>
+          <p className="text-teal-50/75 mt-3">Manage your plan, quota usage, and billing controls.</p>
         </section>
 
         {loading ? <p>Loading billing status...</p> : null}
@@ -175,18 +177,18 @@ export default function BillingSettingsPage() {
 
         {status && !loading && (
           <>
-            <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow space-y-3">
+            <section className="rounded-2xl border border-teal-100 bg-white p-5 shadow space-y-3">
               <p className="text-sm text-slate-500">Current plan</p>
               <p className="text-2xl font-bold">{status.planLabel}</p>
               <p className="text-sm text-slate-600">Reset date: {new Date(status.resetAt).toLocaleDateString()}</p>
 
               {status.plan === "unlimited" ? (
-                <p className="text-sm text-indigo-700">Unlimited (fair use)</p>
+                <p className="text-sm text-teal-700">Unlimited (fair use)</p>
               ) : (
                 <>
                   <p className="text-sm text-slate-700">Usage: {status.used}/{status.freeLimit}</p>
                   <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-indigo-500" style={{ width: `${usageWidth}%` }} />
+                    <div className="h-full bg-teal-500" style={{ width: `${usageWidth}%` }} />
                   </div>
                 </>
               )}
@@ -196,7 +198,7 @@ export default function BillingSettingsPage() {
               ) : null}
             </section>
 
-            <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow space-y-4">
+            <section className="rounded-2xl border border-teal-100 bg-white p-5 shadow space-y-4">
               <div className="segmented">
                 <button
                   onClick={() => setInterval("monthly")}
@@ -216,14 +218,14 @@ export default function BillingSettingsPage() {
               <button
                 onClick={() => startCheckout("pro")}
                 disabled={busyPlan !== null || status.plan === "pro"}
-                className="rounded-lg bg-fuchsia-600 text-white px-4 py-2 disabled:opacity-60"
+                className="rounded-lg bg-teal-600 text-white px-4 py-2 disabled:opacity-60"
               >
                 {status.plan === "pro" ? "Current Pro Plan" : busyPlan === "pro" ? "Starting..." : "Upgrade to Pro"}
               </button>
               <button
                 onClick={() => startCheckout("unlimited")}
                 disabled={busyPlan !== null || status.plan === "unlimited"}
-                className="rounded-lg bg-indigo-600 text-white px-4 py-2 disabled:opacity-60"
+                className="rounded-lg bg-teal-600 text-white px-4 py-2 disabled:opacity-60"
               >
                 {status.plan === "unlimited" ? "Current Unlimited Plan" : busyPlan === "unlimited" ? "Starting..." : "Upgrade to Unlimited"}
               </button>
@@ -238,8 +240,8 @@ export default function BillingSettingsPage() {
           </>
         )}
 
-        <Link href="/pricing" className="text-indigo-700 underline">Back to pricing</Link>
+        <Link href="/pricing" className="text-teal-700 underline">Back to pricing</Link>
       </div>
-    </main>
+    </div>
   );
 }

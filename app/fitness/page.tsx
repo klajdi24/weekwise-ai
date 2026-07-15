@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { Workout } from "@/lib/types";
@@ -40,11 +40,10 @@ export default function FitnessPage() {
     let active = true;
 
     const fetchUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error("User fetch error:", error);
+      const { user: sessionUser } = await getClientAuth(supabase);
 
       if (active) {
-        setUser(data?.user || null);
+        setUser(sessionUser);
         setLoadingUser(false);
       }
     };
@@ -158,52 +157,65 @@ export default function FitnessPage() {
 
   const totalSteps = useMemo(() => workouts.reduce((acc, w) => acc + Number(w.steps || 0), 0), [workouts]);
 
-  if (!supabase) return <p>App is not configured. Missing Supabase environment variables.</p>;
-  if (loadingUser) return <p>Loading user...</p>;
-  if (!user) return <p>Redirecting to login...</p>;
-  if (loadingWorkouts) return <p>Loading workouts...</p>;
+  if (!supabase) {
+    return (
+      <div className="app-surface min-h-full p-6">
+        <p className="card-soft p-4 text-rose-700">App is not configured. Missing Supabase environment variables.</p>
+      </div>
+    );
+  }
+  if (loadingUser || !user || loadingWorkouts) {
+    return (
+      <div className="min-h-screen app-surface p-6 md:p-8">
+        <div className="max-w-6xl mx-auto space-y-4 app-layer">
+          <div className="h-36 rounded-3xl bg-white/70 animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 rounded-2xl bg-white/70 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen app-surface p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <AchievementBurst show={showBurst} text="Workout logged! +Momentum" onDone={() => setShowBurst(false)} />
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6 app-layer">
         <Mascot mood={showBurst ? "celebrate" : "focus"} message="Train body, sharpen focus. Every workout protects your streak." />
-        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">🏋️ Fitness & Energy</h1>
-          <p className="text-slate-300 mt-2">Stay physically active to keep your study performance sharp and your streak alive.</p>
-          <div className="mt-4 flex flex-wrap gap-2 text-sm">
-            <Link href="/schedule" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">↔ Schedule</Link>
-            <Link href="/momentum" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">⚡ Momentum</Link>
-            <Link href="/profile" className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">👤 Profile</Link>
-          </div>
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Fitness</p>
+          <h1 className="page-title text-white mt-2">Energy & training</h1>
+          <p className="text-teal-50/75 mt-3 max-w-2xl">Stay physically active to keep study performance sharp and your streak alive.</p>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Workouts</p>
-            <p className="text-3xl font-bold mt-1">{workouts.length}</p>
+          <div className="card-soft card-hover p-4">
+            <p className="eyebrow text-slate-500">Workouts</p>
+            <p className="font-display text-3xl font-bold mt-2">{workouts.length}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Total Steps</p>
-            <p className="text-3xl font-bold mt-1">{totalSteps.toLocaleString()}</p>
+          <div className="card-soft card-hover p-4">
+            <p className="eyebrow text-slate-500">Total steps</p>
+            <p className="font-display text-3xl font-bold mt-2">{totalSteps.toLocaleString()}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">XP</p>
-            <p className="text-3xl font-bold mt-1">{summary?.xp ?? 0}</p>
+          <div className="card-soft card-hover p-4">
+            <p className="eyebrow text-slate-500">XP</p>
+            <p className="font-display text-3xl font-bold mt-2">{summary?.xp ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-emerald-100 shadow p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Streak</p>
-            <p className="text-3xl font-bold mt-1">🔥 {summary?.streak ?? 0}</p>
+          <div className="card-soft card-hover p-4">
+            <p className="eyebrow text-slate-500">Streak</p>
+            <p className="font-display text-3xl font-bold mt-2">{summary?.streak ?? 0} days</p>
           </div>
         </section>
 
-        <section className="bg-white p-6 rounded-2xl border border-emerald-100 shadow">
-          <h2 className="text-xl font-semibold mb-4">Add Workout</h2>
+        <section className="card-soft p-6">
+          <h2 className="section-title text-slate-900 mb-4">Add workout</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <input
               type="text"
-              placeholder="Workout Name"
-              className="border p-2 rounded-lg"
+              placeholder="Workout name"
+              className="input-polish p-2.5"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -212,7 +224,7 @@ export default function FitnessPage() {
               min={1}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="border p-2 rounded-lg"
+              className="input-polish p-2.5"
               placeholder="Duration (min)"
             />
             <input
@@ -220,40 +232,42 @@ export default function FitnessPage() {
               min={0}
               value={steps}
               onChange={(e) => setSteps(Number(e.target.value))}
-              className="border p-2 rounded-lg"
+              className="input-polish p-2.5"
               placeholder="Steps"
             />
-            <button onClick={addWorkout} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition">
-              Add Workout
+            <button onClick={addWorkout} className="btn-primary">
+              Add workout
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-3">
+          <p className="helper-text mt-3">
             Daily goal progress: {summary?.dailyGoalDone ?? 0}/{summary?.dailyGoalTarget ?? 0}
           </p>
         </section>
 
-        <section className="bg-white p-6 rounded-2xl shadow border border-emerald-100">
-          <h2 className="text-xl font-semibold mb-4">Recent Workouts</h2>
+        <section className="card-soft p-6">
+          <h2 className="section-title text-slate-900 mb-4">Recent workouts</h2>
           {workouts.length === 0 ? (
-            <p className="text-slate-500">No workouts yet. Add your first one and build momentum.</p>
+            <p className="helper-text">No workouts yet. Add your first one and build momentum.</p>
           ) : (
             <ul className="space-y-2">
               {workouts
                 .slice()
                 .reverse()
                 .map((w) => (
-                  <li key={w.id} className="p-3 border rounded-lg flex items-center justify-between">
+                  <li key={w.id} className="p-3 border border-slate-100 rounded-xl flex items-center justify-between bg-slate-50/50">
                     <div>
-                      <p className="font-semibold">{w.name}</p>
+                      <p className="font-semibold text-slate-900">{w.name}</p>
                       <p className="text-sm text-slate-500">{new Date(w.date).toLocaleString()}</p>
                     </div>
-                    <p className="text-sm font-semibold text-slate-700">{w.duration}m • {w.steps} steps</p>
+                    <p className="text-sm font-semibold text-slate-700">
+                      {w.duration}m · {w.steps} steps
+                    </p>
                   </li>
                 ))}
             </ul>
           )}
         </section>
       </div>
-    </main>
+    </div>
   );
 }

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { getClientAuth } from "@/lib/authClient";
 import { extractAiError, isPlanLimitError, type AiClientErrorPayload } from "@/lib/ai/client";
+import Mascot from "../components/mascot";
 
 type EssayTone = "academic" | "clear" | "persuasive";
 type EssayType = "outline" | "draft" | "improve";
@@ -50,12 +52,9 @@ export default function EssayPage() {
     setResult(null);
 
     try {
-      const [{ data: userData }, { data: sessionData }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.auth.getSession(),
-      ]);
+      const { user, accessToken } = await getClientAuth(supabase);
 
-      if (!userData?.user || !sessionData?.session?.access_token) {
+      if (!user || !accessToken) {
         router.replace("/login");
         return;
       }
@@ -64,7 +63,7 @@ export default function EssayPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           prompt: prompt.trim(),
@@ -109,11 +108,13 @@ export default function EssayPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-indigo-100 p-6 md:p-8">
+    <div className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        <section className="rounded-2xl bg-slate-900 text-white p-6 md:p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">✍️ Essay Coach</h1>
-          <p className="text-slate-300 mt-2">Generate outlines, drafts, and improved rewrites with academic structure and study checklists.</p>
+        <Mascot mood={result ? "celebrate" : "focus"} message="Structure first, then polish — I’ll help you build a stronger argument." />
+        <section className="hero-panel p-6 md:p-8">
+          <p className="eyebrow text-teal-300">Essay</p>
+          <h1 className="page-title text-white mt-2">Essay coach</h1>
+          <p className="text-teal-50/75 mt-3">Generate outlines, drafts, and improved rewrites with academic structure and study checklists.</p>
         </section>
 
         <section className="bg-white rounded-2xl card-hover border border-amber-100 shadow p-6 space-y-4">
@@ -172,7 +173,7 @@ export default function EssayPage() {
           <button
             onClick={generateEssay}
             disabled={loading}
-            className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition disabled:opacity-60"
+            className="btn-primary"
           >
             {loading ? "Generating..." : "Generate Essay Support"}
           </button>
@@ -230,6 +231,6 @@ export default function EssayPage() {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }
