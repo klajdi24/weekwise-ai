@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Figtree, Outfit } from "next/font/google";
+import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
 import "./globals.css";
 
-const outfit = Outfit({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  variable: "--font-outfit",
+  variable: "--font-display-family",
   display: "swap",
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
-const figtree = Figtree({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-figtree",
+  variable: "--font-body-family",
   display: "swap",
 });
 
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${figtree.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${jakarta.variable}`}>
       <body className="min-h-screen flex flex-col text-[var(--foreground)] font-sans">
         <Navbar />
         <div className="flex-1 pb-24 lg:pb-0">{children}</div>

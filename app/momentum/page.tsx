@@ -94,8 +94,8 @@ export default function MomentumPage() {
     summary?.streakStatus === "risk"
       ? "text-rose-300"
       : summary?.streakStatus === "warming"
-        ? "text-amber-300"
-        : "text-teal-300";
+        ? "text-violet-300"
+        : "text-violet-300";
 
   return (
     <PageShell>
@@ -130,24 +130,24 @@ export default function MomentumPage() {
             { label: "Consistency", value: loading ? "…" : `${summary?.consistencyScore ?? 0}` },
           ].map((s) => (
             <div key={s.label} className="card-soft p-4 card-hover">
-              <p className="eyebrow text-slate-500">{s.label}</p>
-              <p className="font-display text-3xl font-bold mt-2 text-slate-900">{s.value}</p>
+              <p className="eyebrow text-[var(--muted)]">{s.label}</p>
+              <p className="font-display text-3xl font-bold mt-2 text-[var(--ink)]">{s.value}</p>
             </div>
           ))}
         </div>
 
         <section className="reveal-item grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 card-soft p-6">
-            <h2 className="section-title text-slate-900">Today&apos;s power checklist</h2>
+            <h2 className="section-title text-[var(--ink)]">Today&apos;s power checklist</h2>
             <p className="helper-text mt-1">Generated from your real app activity.</p>
 
             {loading && (
               <div className="mt-4 space-y-3">
-                <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
-                <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                <div className="h-16 rounded-xl bg-white/10 animate-pulse" />
+                <div className="h-16 rounded-xl bg-white/10 animate-pulse" />
               </div>
             )}
-            {error && <p className="mt-4 text-rose-600 text-sm">{error}</p>}
+            {error && <p className="mt-4 text-rose-300 text-sm">{error}</p>}
 
             {!loading && !error && (
               <div className="mt-5 space-y-3">
@@ -155,18 +155,18 @@ export default function MomentumPage() {
                   <div
                     key={item.id}
                     className={`p-4 rounded-2xl border transition-all duration-300 ${
-                      item.done ? "border-teal-200 bg-teal-50 shadow-sm" : "border-slate-200 bg-white"
+                      item.done ? "border-violet-400/30 bg-violet-500/10 shadow-sm" : "border-white/10 bg-white/[0.05] backdrop-blur-xl"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-slate-900">
-                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${item.done ? "bg-teal-500" : "bg-slate-300"}`} />
+                        <p className="font-semibold text-[var(--ink)]">
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${item.done ? "bg-violet-500" : "bg-zinc-300"}`} />
                           {item.label}
                         </p>
-                        <p className="text-sm text-slate-500 mt-1">Reward: +{item.xp} XP</p>
+                        <p className="text-sm text-[var(--muted)] mt-1">Reward: +{item.xp} XP</p>
                       </div>
-                      <span className={`text-sm font-semibold ${item.done ? "text-teal-700" : "text-slate-400"}`}>
+                      <span className={`text-sm font-semibold ${item.done ? "text-violet-200" : "text-[var(--muted)]"}`}>
                         {item.done ? "Done" : "Pending"}
                       </span>
                     </div>
@@ -178,25 +178,25 @@ export default function MomentumPage() {
 
           <div className="card-soft p-5 space-y-5">
             <div>
-              <h3 className="font-display text-xl font-semibold text-slate-900">Level progress</h3>
-              <p className="text-sm text-slate-600 mt-1">
+              <h3 className="font-display text-xl font-semibold text-[var(--ink)]">Level progress</h3>
+              <p className="text-sm text-[var(--foreground)] mt-1">
                 Level {summary?.level ?? 1} · {summary?.xp ?? 0} XP
               </p>
-              <div className="mt-3 w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+              <div className="mt-3 w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700"
+                  className="h-full rounded-full bg-gradient-to-r from-violet-700 to-violet-400 transition-all duration-700"
                   style={{ width: `${summary?.levelProgressPct ?? 0}%` }}
                 />
               </div>
-              <p className="text-xs text-slate-500 mt-2">{summary?.xpToNextLevel ?? 0} XP to next level</p>
+              <p className="text-xs text-[var(--muted)] mt-2">{summary?.xpToNextLevel ?? 0} XP to next level</p>
             </div>
 
-            <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
-              <p className="eyebrow text-teal-800">Daily goal</p>
-              <p className="text-sm mt-2 text-slate-800">
+            <div className="rounded-2xl border border-violet-400/30 bg-violet-500/10 p-4">
+              <p className="eyebrow text-violet-200">Daily goal</p>
+              <p className="text-sm mt-2 text-[var(--ink)]">
                 {summary?.dailyGoalDone ?? 0}/{summary?.dailyGoalTarget ?? 0} key actions completed.
               </p>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-[var(--muted)] mt-2">
                 Last workout:{" "}
                 {summary?.latestWorkoutAt ? new Date(summary.latestWorkoutAt).toLocaleString() : "No workouts yet"}
               </p>

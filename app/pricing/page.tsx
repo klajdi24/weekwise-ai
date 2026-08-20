@@ -133,23 +133,23 @@ export default function PricingPage() {
     <div className="min-h-screen app-surface p-6 md:p-10">
       <section className="max-w-6xl mx-auto space-y-6 app-layer">
         <div className="hero-panel p-8">
-          <p className="eyebrow text-teal-300">Pricing</p>
-          <h1 className="page-title text-white mt-2">Pick your WeekWise plan</h1>
-          <p className="text-teal-50/75 mt-3">Student-friendly pricing. Clear limits. No surprises.</p>
+          <p className="eyebrow text-violet-300">Pricing</p>
+          <h1 className="page-title mt-2">Pick your WeekWise plan</h1>
+          <p className="text-[var(--muted)] mt-3">Student-friendly pricing. Clear limits. No surprises.</p>
           <div className="mt-5 flex flex-wrap gap-2">
             <span className="stat-chip">Current plan: {status?.planLabel ?? "Free"}</span>
             <span className="stat-chip">Usage this month: {usageLabel}</span>
             <span className="stat-chip">Resets monthly</span>
           </div>
           {status?.nearLimit ? (
-            <p className="text-amber-300 mt-3 text-sm">You are near your monthly AI limit. Upgrade to avoid interruptions.</p>
+            <p className="text-violet-300 mt-3 text-sm">You are near your monthly AI limit. Upgrade to avoid interruptions.</p>
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-teal-100 bg-white p-4 flex items-center justify-between flex-wrap gap-3 section-enter">
+        <div className="rounded-2xl border border-violet-400/30 bg-white/[0.05] backdrop-blur-xl p-4 flex items-center justify-between flex-wrap gap-3 section-enter">
           <div>
-            <p className="font-semibold text-slate-900">Billing</p>
-            <p className="text-xs text-slate-500">Switch display to see annual savings</p>
+            <p className="font-semibold text-[var(--ink)]">Billing</p>
+            <p className="text-xs text-[var(--muted)]">Switch display to see annual savings</p>
           </div>
           <div className="segmented">
             <button
@@ -168,62 +168,62 @@ export default function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow">
+          <article className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-xl p-6 shadow">
             <h2 className="text-2xl font-bold">Free</h2>
-            <p className="text-3xl font-extrabold mt-2">£0<span className="text-base text-gray-500"> / month</span></p>
-            <ul className="mt-4 space-y-2 text-gray-700">
+            <p className="text-3xl font-extrabold mt-2">£0<span className="text-base text-[var(--muted)]"> / month</span></p>
+            <ul className="mt-4 space-y-2 text-[var(--foreground)]">
               <li>• Planner core</li>
               <li>• 60 AI actions / month</li>
               <li>• Motivation & streak basics</li>
             </ul>
             <button
               disabled={!isLoggedIn || status?.plan === "free"}
-              className="mt-6 w-full rounded-lg bg-slate-900 text-white px-4 py-2 font-semibold disabled:opacity-50"
+              className="mt-6 w-full btn-secondary disabled:opacity-50"
             >
               {!isLoggedIn ? "Log in to continue" : status?.plan === "free" ? "Current Plan" : "Continue Free"}
             </button>
           </article>
 
-          <article className="rounded-2xl border-2 border-teal-500 bg-gradient-to-b from-teal-50 to-white p-6 shadow-2xl relative scale-[1.01]">
-            <span className="absolute -top-3 right-4 text-xs px-2 py-1 bg-teal-600 text-white rounded-full">Most Popular</span>
+          <article className="rounded-2xl border-2 border-violet-400/30 bg-gradient-to-b from-violet-500/15 to-transparent p-6 shadow-2xl relative scale-[1.01]">
+            <span className="absolute -top-3 right-4 text-xs px-2 py-1 bg-[var(--brand)] text-white rounded-full">Most Popular</span>
             <h2 className="text-2xl font-bold">Pro</h2>
-            <p className="text-3xl font-extrabold mt-2">£{proDisplay}<span className="text-base text-gray-500"> / month</span></p>
-            {billingCycle === "annual" ? <p className="text-xs text-teal-700 mt-1">Billed annually. Equivalent monthly price shown.</p> : null}
-            <p className="mt-2 text-sm text-teal-700 font-medium">Includes 7-day free trial</p>
-            <ul className="mt-4 space-y-2 text-gray-700">
+            <p className="text-3xl font-extrabold mt-2">£{proDisplay}<span className="text-base text-[var(--muted)]"> / month</span></p>
+            {billingCycle === "annual" ? <p className="text-xs text-violet-200 mt-1">Billed annually. Equivalent monthly price shown.</p> : null}
+            <p className="mt-2 text-sm text-violet-200 font-medium">Includes 7-day free trial</p>
+            <ul className="mt-4 space-y-2 text-[var(--foreground)]">
               <li>• Everything in Free</li>
               <li>• 500 AI actions / month</li>
               <li>• Premium UX/perks enabled</li>
             </ul>
-            <button onClick={() => startCheckout("pro")} disabled={!isLoggedIn || checkoutLoading !== null || status?.plan === "pro"} className="mt-6 w-full rounded-lg bg-teal-600 text-white px-4 py-2 font-semibold hover:bg-teal-700 disabled:opacity-60">
+            <button onClick={() => startCheckout("pro")} disabled={!isLoggedIn || checkoutLoading !== null || status?.plan === "pro"} className="mt-6 w-full btn-accent disabled:opacity-60">
               {!isLoggedIn ? "Log in to upgrade" : status?.plan === "pro" ? "Current Plan" : checkoutLoading === "pro" ? "Opening checkout..." : "Start 7-day free trial"}
             </button>
           </article>
 
-          <article className="rounded-2xl border-2 border-teal-400 bg-white p-6 shadow-lg">
+          <article className="rounded-2xl border-2 border-violet-400/30 bg-white/[0.05] backdrop-blur-xl p-6 shadow-lg">
             <h2 className="text-2xl font-bold">Unlimited</h2>
-            <p className="text-3xl font-extrabold mt-2">£{unlimitedDisplay}<span className="text-base text-gray-500"> / month</span></p>
-            {billingCycle === "annual" ? <p className="text-xs text-teal-700 mt-1">Billed annually. Equivalent monthly price shown.</p> : null}
-            <p className="mt-2 text-sm text-teal-700 font-medium">Includes 7-day free trial</p>
-            <ul className="mt-4 space-y-2 text-gray-700">
+            <p className="text-3xl font-extrabold mt-2">£{unlimitedDisplay}<span className="text-base text-[var(--muted)]"> / month</span></p>
+            {billingCycle === "annual" ? <p className="text-xs text-violet-200 mt-1">Billed annually. Equivalent monthly price shown.</p> : null}
+            <p className="mt-2 text-sm text-violet-200 font-medium">Includes 7-day free trial</p>
+            <ul className="mt-4 space-y-2 text-[var(--foreground)]">
               <li>• Everything in Pro</li>
               <li>
                 • Unlimited AI (fair use)
-                <button onClick={() => setShowFairUse(true)} className="ml-2 text-teal-700 underline text-xs">What’s fair use?</button>
+                <button onClick={() => setShowFairUse(true)} className="ml-2 text-violet-200 underline text-xs">What’s fair use?</button>
               </li>
               <li>• Priority processing</li>
             </ul>
-            <button onClick={() => startCheckout("unlimited")} disabled={!isLoggedIn || checkoutLoading !== null || status?.plan === "unlimited"} className="mt-6 w-full rounded-lg bg-teal-600 text-white px-4 py-2 font-semibold hover:bg-teal-700 disabled:opacity-60">
+            <button onClick={() => startCheckout("unlimited")} disabled={!isLoggedIn || checkoutLoading !== null || status?.plan === "unlimited"} className="mt-6 w-full btn-accent disabled:opacity-60">
               {!isLoggedIn ? "Log in to upgrade" : status?.plan === "unlimited" ? "Current Plan" : checkoutLoading === "unlimited" ? "Opening checkout..." : "Start Unlimited trial"}
             </button>
           </article>
         </div>
 
-        <p className="text-sm text-slate-600">1 AI action = 1 AI generate/summarize/suggest request.</p>
+        <p className="text-sm text-[var(--foreground)]">1 AI action = 1 AI generate/summarize/suggest request.</p>
 
-        <section className="rounded-2xl border border-teal-100 bg-white shadow overflow-x-auto">
+        <section className="rounded-2xl border border-violet-400/30 bg-white/[0.05] backdrop-blur-xl shadow overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-white/[0.04]">
               <tr>
                 <th className="text-left p-3">Feature</th>
                 <th className="text-left p-3">Free</th>
@@ -241,9 +241,9 @@ export default function PricingPage() {
                 ["Priority processing", "—", "✓", "✓"],
                 ["Support level", "Standard", "Priority email", "Priority + fast lane"],
               ].map((row, rowIndex) => (
-                <tr key={row[0]} className="border-t border-slate-100">
+                <tr key={row[0]} className="border-t border-white/10">
                   {row.map((cell, cellIndex) => (
-                    <td key={`${rowIndex}-${cellIndex}-${cell}`} className="p-3 text-slate-700">{cell}</td>
+                    <td key={`${rowIndex}-${cellIndex}-${cell}`} className="p-3 text-[var(--foreground)]">{cell}</td>
                   ))}
                 </tr>
               ))}
@@ -251,31 +251,31 @@ export default function PricingPage() {
           </table>
         </section>
 
-        <section className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-900 flex flex-wrap gap-3 justify-between">
+        <section className="rounded-2xl border border-emerald-400/30 bg-emerald-500/12 p-4 text-sm text-emerald-200 flex flex-wrap gap-3 justify-between">
           <span>Cancel anytime</span>
           <span>Secure checkout by Stripe</span>
           <span>No lock-in contracts</span>
           <span>Student-friendly pricing</span>
         </section>
 
-        {checkoutError ? <p className="text-sm text-rose-600">{checkoutError}</p> : null}
+        {checkoutError ? <p className="text-sm text-rose-300">{checkoutError}</p> : null}
 
-        <div className="rounded-2xl bg-white card-hover border border-teal-100 p-5 shadow flex flex-wrap gap-3 items-center justify-between">
-          <p className="text-gray-700">Need plan controls? Open Billing Settings.</p>
+        <div className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 p-5 shadow flex flex-wrap gap-3 items-center justify-between">
+          <p className="text-[var(--foreground)]">Need plan controls? Open Billing Settings.</p>
           <div className="flex gap-3">
-            <Link href="/settings/billing" className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50">Billing Settings</Link>
-            <Link href="/schedule" className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700">Open Schedule</Link>
+            <Link href="/settings/billing" className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/[0.04]">Billing Settings</Link>
+            <Link href="/schedule" className="btn-accent">Open Schedule</Link>
           </div>
         </div>
 
         {showFairUse && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-            <div className="bg-white max-w-md w-full rounded-2xl p-5 shadow-xl border border-teal-100">
-              <h3 className="text-lg font-bold text-slate-900">Fair-use policy (Unlimited plan)</h3>
-              <p className="text-sm text-slate-700 mt-2">
+            <div className="bg-white/[0.05] backdrop-blur-xl max-w-md w-full rounded-2xl p-5 shadow-xl border border-violet-400/30">
+              <h3 className="text-lg font-bold text-[var(--ink)]">Fair-use policy (Unlimited plan)</h3>
+              <p className="text-sm text-[var(--foreground)] mt-2">
                 Normal student usage is unaffected. To protect platform stability, extreme bot-like or abusive sustained traffic is temporarily rate-limited.
               </p>
-              <button onClick={() => setShowFairUse(false)} className="mt-4 rounded-lg bg-slate-900 text-white px-4 py-2">Got it</button>
+              <button onClick={() => setShowFairUse(false)} className="mt-4 btn-primary">Got it</button>
             </div>
           </div>
         )}

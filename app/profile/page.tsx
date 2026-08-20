@@ -138,48 +138,48 @@ export default function Profile() {
       <div className="max-w-5xl mx-auto space-y-6">
         <Mascot mood={showBurst ? "celebrate" : "happy"} message="You’re building a real study identity — keep the streak alive." />
         <section className="hero-panel p-6 md:p-8">
-          <p className="eyebrow text-teal-300">Profile</p>
-          <h1 className="page-title text-white mt-2">Progress & account</h1>
-          <p className="text-teal-50/75 mt-3">Your momentum, rewards and account controls in one place.</p>
+          <p className="eyebrow text-violet-300">Profile</p>
+          <h1 className="page-title mt-2">Progress & account</h1>
+          <p className="text-[var(--muted)] mt-3">Your momentum, rewards and account controls in one place.</p>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Current XP</p>
+          <div className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-4">
+            <p className="text-xs text-[var(--muted)] uppercase tracking-wide">Current XP</p>
             <p className="text-3xl font-bold mt-1">{summaryLoading ? "..." : summary?.xp ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Level</p>
+          <div className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-4">
+            <p className="text-xs text-[var(--muted)] uppercase tracking-wide">Level</p>
             <p className="text-3xl font-bold mt-1">{summaryLoading ? "..." : summary?.level ?? 1}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Streak</p>
+          <div className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-4">
+            <p className="text-xs text-[var(--muted)] uppercase tracking-wide">Streak</p>
             <p className="text-3xl font-bold mt-1">🔥 {summaryLoading ? "..." : summary?.streak ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Plan</p>
+          <div className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-4">
+            <p className="text-xs text-[var(--muted)] uppercase tracking-wide">Plan</p>
             <p className="text-2xl font-bold mt-1">{summaryLoading ? "..." : summary?.isPremium ? "Premium" : "Free"}</p>
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-6">
+        <section className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold">Level Progress</h2>
-            <span className="text-sm text-slate-500">{summary?.levelProgressPct ?? 0}%</span>
+            <span className="text-sm text-[var(--muted)]">{summary?.levelProgressPct ?? 0}%</span>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+          <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-teal-600 to-teal-400 transition-all duration-700"
+              className="h-full bg-gradient-to-r from-violet-700 to-violet-400 transition-all duration-700"
               style={{ width: `${summary?.levelProgressPct ?? 0}%` }}
             />
           </div>
 
           <div className="mt-6">
             <h3 className="font-semibold mb-2">Daily Goal</h3>
-            <p className="text-sm text-slate-600 mb-2">
+            <p className="text-sm text-[var(--foreground)] mb-2">
               Complete {summary?.dailyGoalDone ?? 0} / {summary?.dailyGoalTarget ?? 0} key actions today.
             </p>
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
               <div
                 className="h-full bg-emerald-500 transition-all duration-700"
                 style={{
@@ -194,11 +194,11 @@ export default function Profile() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-6">
+        <section className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-6">
           <h2 className="text-xl font-semibold mb-3">Badges</h2>
 
-          {summaryLoading && <p className="text-slate-500">Loading badge progress...</p>}
-          {summaryError && <p className="text-red-600">{summaryError}</p>}
+          {summaryLoading && <p className="text-[var(--muted)]">Loading badge progress...</p>}
+          {summaryError && <p className="text-rose-300">{summaryError}</p>}
 
           {!summaryLoading && !summaryError && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -207,8 +207,8 @@ export default function Profile() {
                   key={badge.id}
                   className={`rounded-xl border p-3 transition ${
                     badge.unlocked
-                      ? "bg-amber-50 border-amber-300 text-amber-900"
-                      : "bg-slate-50 border-slate-200 text-slate-500"
+                      ? "bg-violet-500/15 border-violet-400/40 text-violet-100"
+                      : "bg-white/[0.03] border-white/10 text-[var(--muted)]"
                   }`}
                 >
                   <p className="font-semibold">{badge.unlocked ? "🏅" : "🔒"} {badge.label}</p>
@@ -217,36 +217,36 @@ export default function Profile() {
             </div>
           )}
 
-          <p className="text-xs text-slate-500 mt-4">Unlocked: {unlockedBadges.length}</p>
+          <p className="text-xs text-[var(--muted)] mt-4">Unlocked: {unlockedBadges.length}</p>
         </section>
 
-        <section className="rounded-2xl bg-white card-hover border border-teal-100 shadow p-6">
+        <section className="rounded-2xl bg-white/[0.05] backdrop-blur-xl card-hover border border-violet-400/30 shadow p-6">
           <h2 className="text-xl font-semibold mb-2">Subscription</h2>
-          <p className="text-sm text-slate-600">
-            Plan: <span className="font-semibold text-slate-900">{subscription?.planLabel ?? (summary?.isPremium ? "Premium" : "Free")}</span>
+          <p className="text-sm text-[var(--foreground)]">
+            Plan: <span className="font-semibold text-[var(--ink)]">{subscription?.planLabel ?? (summary?.isPremium ? "Premium" : "Free")}</span>
           </p>
           {!subscription?.isPremium && (
-            <p className="text-sm text-slate-600 mt-1">
-              AI uses remaining: <span className="font-semibold text-slate-900">{subscription?.remaining ?? 0}/{subscription?.freeLimit ?? 3}</span>
+            <p className="text-sm text-[var(--foreground)] mt-1">
+              AI uses remaining: <span className="font-semibold text-[var(--ink)]">{subscription?.remaining ?? 0}/{subscription?.freeLimit ?? 3}</span>
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link href="/pricing" className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition">
+            <Link href="/pricing" className="btn-accent">
               {subscription?.cta ?? "Upgrade for unlimited AI features"}
             </Link>
-            <Link href="/schedule" className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition">
+            <Link href="/schedule" className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/[0.04] transition">
               Use AI in Schedule
             </Link>
           </div>
         </section>
 
-        <section className="bg-white p-6 rounded-2xl shadow border border-gray-100 max-w-md">
-          <label className="block text-gray-600 font-semibold mb-1">Email</label>
+        <section className="bg-white/[0.05] backdrop-blur-xl p-6 rounded-2xl shadow border border-white/10 max-w-md">
+          <label className="block text-[var(--foreground)] font-semibold mb-1">Email</label>
           <input type="email" value={user.email || ""} className="w-full input-polish p-2 rounded mb-4" disabled />
 
           <button
             onClick={handleLogout}
-            className="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
+            className="w-full rounded-xl border border-rose-400/35 bg-rose-500/12 px-4 py-2 font-semibold text-rose-200 hover:bg-rose-500/20 transition"
           >
             Log Out
           </button>

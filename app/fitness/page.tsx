@@ -160,7 +160,7 @@ export default function FitnessPage() {
   if (!supabase) {
     return (
       <div className="app-surface min-h-full p-6">
-        <p className="card-soft p-4 text-rose-700">App is not configured. Missing Supabase environment variables.</p>
+        <p className="card-soft p-4 text-rose-200">App is not configured. Missing Supabase environment variables.</p>
       </div>
     );
   }
@@ -168,10 +168,10 @@ export default function FitnessPage() {
     return (
       <div className="min-h-screen app-surface p-6 md:p-8">
         <div className="max-w-6xl mx-auto space-y-4 app-layer">
-          <div className="h-36 rounded-3xl bg-white/70 animate-pulse" />
+          <div className="h-36 rounded-3xl bg-white/[0.05] backdrop-blur-xl animate-pulse" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 rounded-2xl bg-white/70 animate-pulse" />
+              <div key={i} className="h-24 rounded-2xl bg-white/[0.05] backdrop-blur-xl animate-pulse" />
             ))}
           </div>
         </div>
@@ -185,32 +185,32 @@ export default function FitnessPage() {
       <div className="max-w-6xl mx-auto space-y-6 app-layer">
         <Mascot mood={showBurst ? "celebrate" : "focus"} message="Train body, sharpen focus. Every workout protects your streak." />
         <section className="hero-panel p-6 md:p-8">
-          <p className="eyebrow text-teal-300">Fitness</p>
-          <h1 className="page-title text-white mt-2">Energy & training</h1>
-          <p className="text-teal-50/75 mt-3 max-w-2xl">Stay physically active to keep study performance sharp and your streak alive.</p>
+          <p className="eyebrow text-violet-300">Fitness</p>
+          <h1 className="page-title mt-2">Energy & training</h1>
+          <p className="text-[var(--muted)] mt-3 max-w-2xl">Stay physically active to keep study performance sharp and your streak alive.</p>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="card-soft card-hover p-4">
-            <p className="eyebrow text-slate-500">Workouts</p>
+            <p className="eyebrow text-[var(--muted)]">Workouts</p>
             <p className="font-display text-3xl font-bold mt-2">{workouts.length}</p>
           </div>
           <div className="card-soft card-hover p-4">
-            <p className="eyebrow text-slate-500">Total steps</p>
+            <p className="eyebrow text-[var(--muted)]">Total steps</p>
             <p className="font-display text-3xl font-bold mt-2">{totalSteps.toLocaleString()}</p>
           </div>
           <div className="card-soft card-hover p-4">
-            <p className="eyebrow text-slate-500">XP</p>
+            <p className="eyebrow text-[var(--muted)]">XP</p>
             <p className="font-display text-3xl font-bold mt-2">{summary?.xp ?? 0}</p>
           </div>
           <div className="card-soft card-hover p-4">
-            <p className="eyebrow text-slate-500">Streak</p>
+            <p className="eyebrow text-[var(--muted)]">Streak</p>
             <p className="font-display text-3xl font-bold mt-2">{summary?.streak ?? 0} days</p>
           </div>
         </section>
 
         <section className="card-soft p-6">
-          <h2 className="section-title text-slate-900 mb-4">Add workout</h2>
+          <h2 className="section-title text-[var(--ink)] mb-4">Add workout</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <input
               type="text"
@@ -245,7 +245,7 @@ export default function FitnessPage() {
         </section>
 
         <section className="card-soft p-6">
-          <h2 className="section-title text-slate-900 mb-4">Recent workouts</h2>
+          <h2 className="section-title text-[var(--ink)] mb-4">Recent workouts</h2>
           {workouts.length === 0 ? (
             <p className="helper-text">No workouts yet. Add your first one and build momentum.</p>
           ) : (
@@ -254,12 +254,12 @@ export default function FitnessPage() {
                 .slice()
                 .reverse()
                 .map((w) => (
-                  <li key={w.id} className="p-3 border border-slate-100 rounded-xl flex items-center justify-between bg-slate-50/50">
+                  <li key={w.id} className="p-3 border border-white/10 rounded-xl flex items-center justify-between bg-white/[0.04]">
                     <div>
-                      <p className="font-semibold text-slate-900">{w.name}</p>
-                      <p className="text-sm text-slate-500">{new Date(w.date).toLocaleString()}</p>
+                      <p className="font-semibold text-[var(--ink)]">{w.name}</p>
+                      <p className="text-sm text-[var(--muted)]">{new Date(w.date).toLocaleString()}</p>
                     </div>
-                    <p className="text-sm font-semibold text-slate-700">
+                    <p className="text-sm font-semibold text-[var(--foreground)]">
                       {w.duration}m · {w.steps} steps
                     </p>
                   </li>

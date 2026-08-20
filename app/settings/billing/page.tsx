@@ -167,38 +167,38 @@ export default function BillingSettingsPage() {
     <div className="min-h-screen app-surface p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <section className="hero-panel p-6 md:p-8">
-          <p className="eyebrow text-teal-300">Billing</p>
-          <h1 className="page-title text-white mt-2">Billing settings</h1>
-          <p className="text-teal-50/75 mt-3">Manage your plan, quota usage, and billing controls.</p>
+          <p className="eyebrow text-violet-300">Billing</p>
+          <h1 className="page-title mt-2">Billing settings</h1>
+          <p className="text-[var(--muted)] mt-3">Manage your plan, quota usage, and billing controls.</p>
         </section>
 
         {loading ? <p>Loading billing status...</p> : null}
-        {error ? <p className="text-rose-600">{error}</p> : null}
+        {error ? <p className="text-rose-300">{error}</p> : null}
 
         {status && !loading && (
           <>
-            <section className="rounded-2xl border border-teal-100 bg-white p-5 shadow space-y-3">
-              <p className="text-sm text-slate-500">Current plan</p>
+            <section className="rounded-2xl border border-violet-400/30 bg-white/[0.05] backdrop-blur-xl p-5 shadow space-y-3">
+              <p className="text-sm text-[var(--muted)]">Current plan</p>
               <p className="text-2xl font-bold">{status.planLabel}</p>
-              <p className="text-sm text-slate-600">Reset date: {new Date(status.resetAt).toLocaleDateString()}</p>
+              <p className="text-sm text-[var(--foreground)]">Reset date: {new Date(status.resetAt).toLocaleDateString()}</p>
 
               {status.plan === "unlimited" ? (
-                <p className="text-sm text-teal-700">Unlimited (fair use)</p>
+                <p className="text-sm text-violet-200">Unlimited (fair use)</p>
               ) : (
                 <>
-                  <p className="text-sm text-slate-700">Usage: {status.used}/{status.freeLimit}</p>
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-teal-500" style={{ width: `${usageWidth}%` }} />
+                  <p className="text-sm text-[var(--foreground)]">Usage: {status.used}/{status.freeLimit}</p>
+                  <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full bg-violet-500" style={{ width: `${usageWidth}%` }} />
                   </div>
                 </>
               )}
 
               {status.nearLimit && status.plan !== "unlimited" ? (
-                <p className="text-sm text-amber-700">You are near your limit. Upgrade to avoid interruption.</p>
+                <p className="text-sm text-violet-200">You are near your limit. Upgrade to avoid interruption.</p>
               ) : null}
             </section>
 
-            <section className="rounded-2xl border border-teal-100 bg-white p-5 shadow space-y-4">
+            <section className="rounded-2xl border border-violet-400/30 bg-white/[0.05] backdrop-blur-xl p-5 shadow space-y-4">
               <div className="segmented">
                 <button
                   onClick={() => setInterval("monthly")}
@@ -218,21 +218,21 @@ export default function BillingSettingsPage() {
               <button
                 onClick={() => startCheckout("pro")}
                 disabled={busyPlan !== null || status.plan === "pro"}
-                className="rounded-lg bg-teal-600 text-white px-4 py-2 disabled:opacity-60"
+                className="btn-accent disabled:opacity-60"
               >
                 {status.plan === "pro" ? "Current Pro Plan" : busyPlan === "pro" ? "Starting..." : "Upgrade to Pro"}
               </button>
               <button
                 onClick={() => startCheckout("unlimited")}
                 disabled={busyPlan !== null || status.plan === "unlimited"}
-                className="rounded-lg bg-teal-600 text-white px-4 py-2 disabled:opacity-60"
+                className="btn-accent disabled:opacity-60"
               >
                 {status.plan === "unlimited" ? "Current Unlimited Plan" : busyPlan === "unlimited" ? "Starting..." : "Upgrade to Unlimited"}
               </button>
-              <button onClick={openPortal} disabled={portalBusy} className="rounded-lg border border-slate-300 px-4 py-2">
+              <button onClick={openPortal} disabled={portalBusy} className="rounded-lg border border-white/10 px-4 py-2">
                 {portalBusy ? "Opening..." : "Manage billing portal"}
               </button>
-              <button onClick={downgradeToFree} disabled={changeBusy || status.plan === "free"} className="rounded-lg border border-rose-300 text-rose-700 px-4 py-2 disabled:opacity-60">
+              <button onClick={downgradeToFree} disabled={changeBusy || status.plan === "free"} className="rounded-lg border border-rose-400/35 text-rose-200 px-4 py-2 disabled:opacity-60">
                 {status.plan === "free" ? "Already on Free" : changeBusy ? "Downgrading..." : "Downgrade to Free"}
               </button>
               </div>
@@ -240,7 +240,7 @@ export default function BillingSettingsPage() {
           </>
         )}
 
-        <Link href="/pricing" className="text-teal-700 underline">Back to pricing</Link>
+        <Link href="/pricing" className="text-violet-200 underline">Back to pricing</Link>
       </div>
     </div>
   );
