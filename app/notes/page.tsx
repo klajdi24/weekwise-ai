@@ -87,19 +87,19 @@ export default function Notes() {
         <Mascot mood={result ? "celebrate" : "happy"} message="Drop your lecture notes and I’ll turn them into revision fuel." />
 
         <section className="hero-panel p-6 md:p-8">
-          <p className="eyebrow text-teal-300">Notes</p>
-          <h1 className="page-title text-white mt-2">Lecture notes studio</h1>
-          <p className="text-teal-50/75 mt-3">Turn raw class notes into summary bullets, key terms, and quiz-ready revision prompts.</p>
+          <p className="eyebrow text-violet-300">Notes</p>
+          <h1 className="page-title mt-2">Lecture notes studio</h1>
+          <p className="text-[var(--muted)] mt-3">Turn raw class notes into summary bullets, key terms, and quiz-ready revision prompts.</p>
         </section>
 
-        <section className="card-bubbly rounded-2xl border border-cyan-100 shadow p-6 space-y-4">
+        <section className="card-bubbly rounded-2xl border border-violet-400/30 shadow p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Module</label>
+              <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">Module</label>
               <input value={module} onChange={(e) => setModule(e.target.value)} className="w-full input-polish p-2 rounded-lg" placeholder="e.g. Economics 201" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Mode</label>
+              <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">Mode</label>
               <select value={mode} onChange={(e) => setMode(e.target.value as NotesMode)} className="w-full input-polish p-2 rounded-lg">
                 <option value="summarize">Summarize</option>
                 <option value="quiz">Quiz me (5 questions)</option>
@@ -122,28 +122,28 @@ export default function Notes() {
             {loading ? "Generating..." : mode === "quiz" ? "Generate Quiz Pack" : "Generate Study Notes"}
           </button>
 
-          {error && <p className="text-red-600">{error}</p>}
+          {error && <p className="text-rose-300">{error}</p>}
         </section>
 
         {result && (
-          <section className="bg-white rounded-2xl card-hover shadow border border-cyan-100 p-6 space-y-5">
+          <section className="bg-white/[0.05] backdrop-blur-xl rounded-2xl card-hover shadow border border-violet-400/30 p-6 space-y-5">
             <div className="flex flex-wrap items-center gap-2 justify-between">
-              <h2 className="text-2xl font-bold text-cyan-900">Your Study Output</h2>
+              <h2 className="text-2xl font-bold text-violet-200">Your Study Output</h2>
               <div className="flex gap-2 text-sm">
-                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-semibold">+{result.xpReward} XP</span>
-                {result.remaining !== null && <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700">Free AI left: {result.remaining}</span>}
+                <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-200 font-semibold">+{result.xpReward} XP</span>
+                {result.remaining !== null && <span className="px-3 py-1 rounded-full bg-white/10 text-[var(--foreground)]">Free AI left: {result.remaining}</span>}
               </div>
             </div>
 
             <div>
               <h3 className="font-semibold mb-2">Summary</h3>
-              <p className="text-slate-700 whitespace-pre-wrap">{result.summary}</p>
+              <p className="text-[var(--foreground)] whitespace-pre-wrap">{result.summary}</p>
             </div>
 
             {result.bullets.length > 0 && (
               <div>
                 <h3 className="font-semibold mb-2">Key Bullets</h3>
-                <ul className="list-disc pl-5 text-slate-700 space-y-1">
+                <ul className="list-disc pl-5 text-[var(--foreground)] space-y-1">
                   {result.bullets.map((line, idx) => (
                     <li key={`${line}-${idx}`}>{line}</li>
                   ))}
@@ -156,7 +156,7 @@ export default function Notes() {
                 <h3 className="font-semibold mb-2">Key Terms</h3>
                 <div className="flex flex-wrap gap-2">
                   {result.keyTerms.map((term, idx) => (
-                    <span key={`${term}-${idx}`} className="px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-800 text-sm">{term}</span>
+                    <span key={`${term}-${idx}`} className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-400/30 text-violet-200 text-sm">{term}</span>
                   ))}
                 </div>
               </div>
@@ -165,7 +165,7 @@ export default function Notes() {
             {result.quizQuestions.length > 0 && (
               <div>
                 <h3 className="font-semibold mb-2">Quiz Me</h3>
-                <ol className="list-decimal pl-5 text-slate-700 space-y-1">
+                <ol className="list-decimal pl-5 text-[var(--foreground)] space-y-1">
                   {result.quizQuestions.map((q, idx) => (
                     <li key={`${q}-${idx}`}>{q}</li>
                   ))}

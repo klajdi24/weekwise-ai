@@ -215,16 +215,16 @@ export default function Summarize() {
         />
 
         <section className="hero-panel p-6 md:p-8">
-          <p className="eyebrow text-teal-300">Summarize</p>
-          <h1 className="page-title text-white mt-2">Smart PDF summarizer</h1>
-          <p className="text-teal-50/75 mt-3">
+          <p className="eyebrow text-violet-300">Summarize</p>
+          <h1 className="page-title mt-2">Smart PDF summarizer</h1>
+          <p className="text-[var(--muted)] mt-3">
             Turn lecture slides into key concepts, actions, and quiz prompts in minutes.
           </p>
         </section>
 
-        <section className="bg-white rounded-2xl card-hover border border-teal-100 shadow p-6 space-y-4">
+        <section className="bg-white/[0.05] backdrop-blur-xl rounded-2xl card-hover border border-violet-400/30 shadow p-6 space-y-4">
           <div>
-            <label htmlFor="pdf-upload" className="block text-sm font-semibold text-slate-700 mb-2">Upload PDF</label>
+            <label htmlFor="pdf-upload" className="block text-sm font-semibold text-[var(--foreground)] mb-2">Upload PDF</label>
             <input
               id="pdf-upload"
               type="file"
@@ -233,13 +233,13 @@ export default function Summarize() {
               className="border p-2 rounded-lg w-full"
               aria-label="Upload lecture PDF"
             />
-            {file && <p className="text-xs text-slate-500 mt-2">Selected: {file.name}</p>}
-            <p className="text-xs text-slate-500 mt-2">Plan upload limit: {maxMbForPlan} MB ({plan} plan)</p>
+            {file && <p className="text-xs text-[var(--muted)] mt-2">Selected: {file.name}</p>}
+            <p className="text-xs text-[var(--muted)] mt-2">Plan upload limit: {maxMbForPlan} MB ({plan} plan)</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="summary-mode" className="block text-sm font-semibold text-slate-700 mb-2">Summary mode</label>
+              <label htmlFor="summary-mode" className="block text-sm font-semibold text-[var(--foreground)] mb-2">Summary mode</label>
               <select
                 id="summary-mode"
                 value={mode}
@@ -250,11 +250,11 @@ export default function Summarize() {
                 <option value="exam">Exam prep</option>
                 <option value="deep">Deep understanding</option>
               </select>
-              <p className="text-xs text-slate-500 mt-1">{modeHint}</p>
+              <p className="text-xs text-[var(--muted)] mt-1">{modeHint}</p>
             </div>
 
             <div>
-              <label htmlFor="summary-format" className="block text-sm font-semibold text-slate-700 mb-2">Output format</label>
+              <label htmlFor="summary-format" className="block text-sm font-semibold text-[var(--foreground)] mb-2">Output format</label>
               <select
                 id="summary-format"
                 value={format}
@@ -284,13 +284,13 @@ export default function Summarize() {
             )}
           </div>
 
-          {remaining !== null && <p className="text-xs text-slate-500">Free AI uses remaining today: {remaining}</p>}
+          {remaining !== null && <p className="text-xs text-[var(--muted)]">Free AI uses remaining today: {remaining}</p>}
 
           {uiState === "error" && (
             <div className="space-y-2" role="alert">
-              <p className="text-red-600">{error}</p>
+              <p className="text-rose-300">{error}</p>
               {(error.includes("Max for free") || error.includes("Max for pro") || error.includes("Upgrade")) && (
-                <Link href="/pricing" className="inline-block text-sm text-teal-700 underline">Upgrade plan for larger PDFs</Link>
+                <Link href="/pricing" className="inline-block text-sm text-violet-200 underline">Upgrade plan for larger PDFs</Link>
               )}
             </div>
           )}
@@ -298,29 +298,29 @@ export default function Summarize() {
 
         {uiState === "idle" && !summary && (
           <section className="card-soft p-6 text-center">
-            <p className="text-slate-600">No summary yet. Upload your lecture PDF and generate your first study pack.</p>
+            <p className="text-[var(--foreground)]">No summary yet. Upload your lecture PDF and generate your first study pack.</p>
           </section>
         )}
 
         {uiState === "loading" && (
-          <section className="bg-white rounded-2xl card-hover shadow border border-teal-100 p-6 space-y-4">
-            <div className="h-6 w-44 bg-slate-100 rounded animate-pulse" />
-            <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
-            <div className="h-4 w-11/12 bg-slate-100 rounded animate-pulse" />
-            <div className="h-4 w-10/12 bg-slate-100 rounded animate-pulse" />
+          <section className="bg-white/[0.05] backdrop-blur-xl rounded-2xl card-hover shadow border border-violet-400/30 p-6 space-y-4">
+            <div className="h-6 w-44 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 w-full bg-white/10 rounded animate-pulse" />
+            <div className="h-4 w-11/12 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 w-10/12 bg-white/10 rounded animate-pulse" />
           </section>
         )}
 
         {summary && (
-          <section className="bg-white rounded-2xl card-hover shadow border border-teal-100 p-6 space-y-5">
+          <section className="bg-white/[0.05] backdrop-blur-xl rounded-2xl card-hover shadow border border-violet-400/30 p-6 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-2xl font-bold text-teal-900">Your Study Pack</h2>
+              <h2 className="text-2xl font-bold text-violet-200">Your Study Pack</h2>
               <div className="flex items-center gap-2 text-sm">
-                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-semibold">+{xpReward} XP earned</span>
-                <span className="px-3 py-1 rounded-full bg-teal-100 text-teal-800">~{estimatedReadMinutes} min read</span>
+                <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-200 font-semibold">+{xpReward} XP earned</span>
+                <span className="px-3 py-1 rounded-full bg-violet-500/15 text-violet-200">~{estimatedReadMinutes} min read</span>
                 <button
                   onClick={handleCopy}
-                  className="px-3 py-1 rounded-full bg-slate-900 text-white hover:bg-black transition"
+                  className="btn-secondary text-sm py-1.5 px-3"
                 >
                   {copied ? "Copied" : "Copy"}
                 </button>
@@ -328,14 +328,14 @@ export default function Summarize() {
             </div>
 
             <div>
-              <h3 className="font-semibold text-slate-900 mb-2">Summary</h3>
-              <p className="text-slate-700 whitespace-pre-wrap">{summary}</p>
+              <h3 className="font-semibold text-[var(--ink)] mb-2">Summary</h3>
+              <p className="text-[var(--foreground)] whitespace-pre-wrap">{summary}</p>
             </div>
 
             {keyPoints.length > 0 && (
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Key Concepts</h3>
-                <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                <h3 className="font-semibold text-[var(--ink)] mb-2">Key Concepts</h3>
+                <ul className="list-disc pl-5 space-y-1 text-[var(--foreground)]">
                   {keyPoints.map((point, index) => (
                     <li key={`${point}-${index}`}>{point}</li>
                   ))}
@@ -345,8 +345,8 @@ export default function Summarize() {
 
             {actionItems.length > 0 && (
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Revision Checklist</h3>
-                <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                <h3 className="font-semibold text-[var(--ink)] mb-2">Revision Checklist</h3>
+                <ul className="list-disc pl-5 space-y-1 text-[var(--foreground)]">
                   {actionItems.map((item, index) => (
                     <li key={`${item}-${index}`}>{item}</li>
                   ))}
@@ -356,8 +356,8 @@ export default function Summarize() {
 
             {quizQuestions.length > 0 && (
               <div>
-                <h3 className="font-semibold text-slate-900 mb-2">Exam-style Quick Questions</h3>
-                <ul className="list-decimal pl-5 space-y-1 text-slate-700">
+                <h3 className="font-semibold text-[var(--ink)] mb-2">Exam-style Quick Questions</h3>
+                <ul className="list-decimal pl-5 space-y-1 text-[var(--foreground)]">
                   {quizQuestions.map((q, index) => (
                     <li key={`${q}-${index}`}>{q}</li>
                   ))}
